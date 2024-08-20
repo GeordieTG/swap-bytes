@@ -1,9 +1,9 @@
 use crate::network::network::Client;
 use crate::state::STATE;
-use crate::ui::global_ui;
-use crate::ui::direct_ui;
-use crate::ui::rating_ui;
-use crate::ui::rooms_ui;
+use crate::ui::global;
+use crate::ui::direct;
+use crate::ui::rating;
+use crate::ui::rooms_menu;
 use crate::ui::room;
 use crate::ui::landing;
 use ratatui::prelude::*;
@@ -20,10 +20,10 @@ pub fn ui(
     drop(state);
     
     match tab {
-        0 => global_ui::render(frame),
-        1 => rooms_ui::render(frame),
-        2 => direct_ui::render(frame),
-        3 => rating_ui::render(frame),
+        0 => global::render(frame),
+        1 => rooms_menu::render(frame),
+        2 => direct::render(frame),
+        3 => rating::render(frame),
         4 => room::render(frame),  
         5 => landing::render(frame),
         _ => { log::info!("Goofed")}
@@ -41,11 +41,11 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
     drop(state);
 
     match tab {
-        0 => global_ui::handle_events(client).await,
-        1 => rooms_ui::handle_events(),
-        2 => direct_ui::handle_events(client).await,  
-        3 => rating_ui::handle_events(client).await,  
-        4 => room::handle_events(),
+        0 => global::handle_events(client).await,
+        1 => rooms_menu::handle_events(),
+        2 => direct::handle_events(client).await,  
+        3 => rating::handle_events(client).await,  
+        4 => room::handle_events(client).await,
         5 => landing::handle_events().await,
         _ => {Ok(false)}
     }

@@ -52,9 +52,10 @@ impl Client {
     pub(crate) async fn send_message(
         &mut self,
         message: String,
+        room: String
     ) {
         self.sender
-            .send(Command::SendMessage { message })
+            .send(Command::SendMessage { message, room })
             .await
             .expect("Command receiver not to be dropped.");
     }
@@ -82,6 +83,16 @@ impl Client {
             .await
             .expect("Command receiver not to be dropped.");
     }
+
+    pub(crate) async fn join_room(
+        &mut self,
+        room: String
+    ) {
+        self.sender
+            .send(Command::JoinRoom { room })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
 }
 
 
@@ -93,6 +104,7 @@ pub enum Command {
     },
     SendMessage {
         message: String,
+        room: String
     },
     RequestFile {
         request: String,
@@ -103,6 +115,9 @@ pub enum Command {
         filepath: String,
         channel: ResponseChannel<Response>
     },
+    JoinRoom {
+        room: String
+    }
 }
 
 
@@ -162,7 +177,7 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 pub struct EventLoop {
     swarm: Swarm<ChatBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
-    nickname_fetch_queue: HashMap<QueryId, (PeerId, String)>,
+    nickname_fetch_queue: HashMap<QueryId, (PeerId, String, String)>, // (PeerId, Message, Topic)
 }
 
 
@@ -240,6 +255,11 @@ impl EventLoop {
 
         match command {
 
+            Command::JoinRoom { room } => {
+                let topic = gossipsub::IdentTopic::new(room.to_string());
+                self.swarm.behaviour_mut().gossipsub.subscribe(&topic).expect("");
+            }
+
             Command::StartListening { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
@@ -247,8 +267,8 @@ impl EventLoop {
                 };
             }
 
-            Command::SendMessage { message } => {
-                let topic = gossipsub::IdentTopic::new("global");
+            Command::SendMessage { message , room} => {
+                let topic = gossipsub::IdentTopic::new(room);
                 if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()) {
                     log::info!("Error publishing: {:?}", err)
                 }

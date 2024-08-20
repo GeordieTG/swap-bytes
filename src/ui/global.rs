@@ -99,7 +99,7 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
                             msgs.push(format!("{}: {}", state.nickname, state.input.to_string()));
                         }
 
-                        client.send_message(state.input.to_string()).await;
+                        client.send_message(state.input.to_string(), "global".to_string()).await;
                         state.input.clear();
 
                     }

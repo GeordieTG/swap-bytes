@@ -1,4 +1,4 @@
-use crate::state::STATE;
+use crate::{network::network::Client, state::STATE};
 use tokio::io;
 use ratatui::{
     crossterm::event::{self, Event, KeyCode},
@@ -84,9 +84,12 @@ pub fn render(frame: &mut Frame) {
 
 
 
-pub fn handle_events() -> io::Result<bool> {
+pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
 
     let mut state = STATE.lock().unwrap();
+
+    let room_key = state.current_room.clone();
+    client.join_room(room_key).await;
 
     if event::poll(std::time::Duration::from_millis(50))? {
         if let Event::Key(key) = event::read()? {
@@ -113,9 +116,11 @@ pub fn handle_events() -> io::Result<bool> {
                         {
                             let room_key = state.current_room.clone();
                             let message = state.input.to_string();
+                            let nickname = state.nickname.clone();
 
-                            let msgs = state.room_chats.entry(room_key).or_default();
-                            msgs.push(message);
+                            let msgs = state.room_chats.entry(room_key.clone()).or_default();
+                            msgs.push(format!("{}: {}", nickname, message.clone()));
+                            client.send_message(message, room_key).await;
                         }
                         
                         state.input.clear();

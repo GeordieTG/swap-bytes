@@ -9,12 +9,12 @@ pub mod router;
 pub mod types;
 pub mod state;
 pub mod ui {
-    pub mod global_ui;
-    pub mod rooms_ui;
-    pub mod direct_ui;
+    pub mod global;
+    pub mod rooms_menu;
+    pub mod direct;
     pub mod room;
     pub mod landing;
-    pub mod rating_ui;
+    pub mod rating;
 }
 use std::io as std_out;
 use tokio::spawn;

@@ -3,7 +3,7 @@ use libp2p::{kad::{self, QueryId}, PeerId};
 use crate::state::STATE;
 
 
-pub async fn handle_event(event: libp2p::kad::Event, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String)>) {
+pub async fn handle_event(event: libp2p::kad::Event, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String, String)>) {
 
     match event {
 
@@ -25,9 +25,14 @@ pub async fn handle_event(event: libp2p::kad::Event, nickname_fetch_queue: &mut 
                             let mut state = STATE.lock().unwrap();
 
                             if nickname_fetch_queue.contains_key(&id) {
-                                let msg = nickname_fetch_queue.remove(&id).expect("Message was not in queue");
-                                state.messages.lock().unwrap().push(format!("{}: {}", nickname, msg.1.to_string()));
-                                state.nicknames.insert(msg.0.to_string(), nickname);
+                                let (peer_id, message, topic) = nickname_fetch_queue.remove(&id).expect("Message was not in queue");
+
+                                if topic == "global".to_string() {
+                                    state.messages.lock().unwrap().push(format!("{}: {}", nickname, message));
+                                } else {
+                                    state.room_chats.get_mut(&topic.to_string()).expect("").push(format!("{}: {}", nickname, message));
+                                }
+                                state.nicknames.insert(peer_id.to_string(), nickname);
                             }                                
                         }
                         Err(e) => {
