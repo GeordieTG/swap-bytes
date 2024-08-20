@@ -1,4 +1,4 @@
-use crate::{network::Client, state::STATE};
+use crate::{network::network::Client, state::STATE};
 use ratatui::{
     crossterm::event::{self, Event, KeyCode},
     prelude::*,

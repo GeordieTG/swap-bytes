@@ -4,7 +4,7 @@ use libp2p_request_response::ResponseChannel;
 use ratatui::widgets::ListState;
 use lazy_static::lazy_static;
 
-use crate::network::Response;
+use crate::network::network::Response;
 
 pub struct GlobalState {
     pub nickname: String,

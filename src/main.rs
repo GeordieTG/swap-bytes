@@ -1,4 +1,10 @@
-pub mod network;
+pub mod network {
+    pub mod network;
+    pub mod mdns;
+    pub mod gossipsub;
+    pub mod request_response;
+    pub mod kademlia;
+}
 pub mod router;
 pub mod types;
 pub mod state;
@@ -65,9 +71,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(CrosstermBackend::new(std_out::stdout()))?;
 
 
-    // Setup Libp2p
-    // Spawn Libp2p Event Checker in the background
-    let (mut client, event_loop) = network::new()?;    
+    // Libp2p Setup
+    let (mut client, event_loop) = network::network::new()?;    
 
     // Page to enter nickname
     let mut should_quit = false;

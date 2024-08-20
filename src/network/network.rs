@@ -1,16 +1,19 @@
-use libp2p_request_response::{Message, ResponseChannel};
+use libp2p_request_response::ResponseChannel;
 use libp2p::{gossipsub, kad::QueryId, mdns, noise, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
 use futures::StreamExt;
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use libp2p::StreamProtocol;
 use std::{error::Error, time::Duration};
-use crate::state::{self, STATE};
 use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Mode;
+use crate::network::mdns as mdns_events;
+use crate::network::gossipsub as gossibsub_events;
+use crate::network::kademlia as kademlia_events;
+use crate::network::request_response as reqyest_response_events;
 
 
 /// Defines the behaviour of our libp2p application
@@ -106,8 +109,6 @@ pub enum Command {
 /// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
-    let state = STATE.lock().unwrap();
-
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
         .with_tcp(
@@ -151,7 +152,7 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
             Client {
                 sender: command_sender,
             },
-            EventLoop::new(swarm, state.peers.clone(), command_receiver),
+            EventLoop::new(swarm, command_receiver),
         ))
 }
 
@@ -160,7 +161,6 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 /// Consists of the Swarm to perform network tasks, as well as the global state of messages and connected peers to update when need be.
 pub struct EventLoop {
     swarm: Swarm<ChatBehaviour>,
-    peers: Arc<Mutex<Vec<PeerId>>>,
     command_receiver: mpsc::Receiver<Command>,
     nickname_fetch_queue: HashMap<QueryId, (PeerId, String)>,
 }
@@ -172,12 +172,10 @@ pub struct EventLoop {
 impl EventLoop {
     pub fn new(
         swarm: Swarm<ChatBehaviour>,
-        peers: Arc<Mutex<Vec<PeerId>>>,
         command_receiver: mpsc::Receiver<Command>,
     ) -> Self {
         Self {
             swarm,
-            peers,
             command_receiver,
             nickname_fetch_queue: HashMap::new(),
         }
@@ -202,6 +200,7 @@ impl EventLoop {
 
         match event {
 
+            // Initial setup
             SwarmEvent::NewListenAddr { address, ..} => {
                 log::info!("Listening on address: {address}");
 
@@ -209,142 +208,26 @@ impl EventLoop {
                 self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
             },
 
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                log::info!("Established connection with {peer_id}");
+            // Handle MDNS events
+            SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(event)) => {
+                mdns_events::handle_event(event, &mut self.swarm).await;
             }
 
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                for (peer_id, addr) in list {
-                    log::info!("Connected with person with id: {peer_id}");
-
-                    self.swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
-
-                    {
-                        let mut peers: std::sync::MutexGuard<Vec<PeerId>> = self.peers.lock().unwrap();
-                        peers.push(peer_id)
-                    }
-
-                    let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-
-                    // Add your nickname to DHT
-                    if !state.has_added_nickname {
-
-                        log::info!("My nickname is {}", state.nickname);
-                        let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
-            
-                        let record = kad::Record {
-                            key: kad::RecordKey::new(&self.swarm.local_peer_id().to_string()),
-                            value: nickname_bytes,
-                            publisher: None,
-                            expires: None,
-                        };
-
-                        self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record locally");
-                    }
-                }
+            // Handle Gossipsub events
+            SwarmEvent::Behaviour(ChatBehaviourEvent::Gossipsub(event)) => {
+                gossibsub_events::handle_event(event, &mut self.swarm, &mut self.nickname_fetch_queue).await;
             }
 
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
-                for (peer_id, _) in list {
-                    self.swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id)
-                }
+            // Handle Kademlia events
+            SwarmEvent::Behaviour(ChatBehaviourEvent::Kademlia(event)) => {
+                kademlia_events::handle_event(event, &mut self.nickname_fetch_queue).await;
             }
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(request_response::Event::InboundFailure { error, ..})) => {
-                log::info!("Inbound Error {error}")
+    
+            // Handle Request-Response events
+            SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(event)) => {
+                reqyest_response_events::handle_event(event).await;
             }
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(request_response::Event::OutboundFailure { error, ..})) => {
-                log::info!("outbound failiure {error}");
-            }
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(request_response::Event::Message { peer, message })) => {
-
-                match message {
-
-                    Message::Request { request, channel, .. } => {
-                        log::info!("Received request: {:?}", request);
-                        let mut state = STATE.lock().unwrap();
-                        state.requests.push((peer, request.request, channel))
-                    },
-
-                    Message::Response { response, .. } => {
-                        log::info!("Received response: {:?}", response);
-
-                        if let Err(e) = std::fs::write(&response.filename, response.data) {
-                            log::error!("Failed to write file {}: {}", &response.filename, e);
-                        } else {
-                            log::info!("File {} received and saved successfully", &response.filename);
-                        }
-
-                        let mut state = STATE.lock().unwrap();
-                        state.tab = 3;
-                    },
-                }
-            }
-
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-                propagation_source: peer_id,
-                message_id: _id,
-                message,
-            })) => {
-                log::info!("Received message: {}", String::from_utf8_lossy(&message.data));
-
-                let message = String::from_utf8_lossy(&message.data).to_string();
-
-                // Fetch the users nickname from the DHT
-                let key = kad::RecordKey::new(&peer_id.to_string());
-                let query_id = self.swarm.behaviour_mut().kademlia.get_record(key);
-                self.nickname_fetch_queue.insert(query_id, (peer_id, message));
-            }  
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Kademlia(kad::Event::OutboundQueryProgressed { result, id, ..})) => {
-                
-                match result {
-
-                    kad::QueryResult::GetRecord(Ok(
-                        kad::GetRecordOk::FoundRecord(kad::PeerRecord {
-                            record: kad::Record { key, value, ..},
-                            ..
-                        })
-                    )) => {
-                        match serde_cbor::from_slice::<String>(&value) {
-                            
-                            Ok(nickname) => {
-                                log::info!("Got record {:?} {:?}", std::str::from_utf8(key.as_ref()).unwrap(), nickname);
-
-                                let mut state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-
-                                if self.nickname_fetch_queue.contains_key(&id) {
-                                    let msg = self.nickname_fetch_queue.remove(&id).expect("Message was not in queue");
-                                    state.messages.lock().unwrap().push(format!("{}: {}", nickname, msg.1.to_string()));
-                                    state.nicknames.insert(msg.0.to_string(), nickname);
-                                }                                
-                            }
-                            Err(e) => {
-                                log::info!("Error deserializing {e:?}");
-                            }
-                        }
-                    }
-
-                    kad::QueryResult::GetRecord(Err(err)) => {
-                        log::info!("Failed to get record {err:?}");
-                    }
-
-                    kad::QueryResult::PutRecord(Ok(kad::PutRecordOk { key })) => {
-                        log::info!("Successfully put record {:?}", std::str::from_utf8(key.as_ref()).unwrap());
-                    }
-
-                    kad::QueryResult::PutRecord(Err(err)) => {
-                        log::info!("Failed to put record {err:?}");
-                    }
-
-                    _ => {}
-
-                }
-            }        
+        
             _ => {}
         }
     }
@@ -403,13 +286,13 @@ impl EventLoop {
 /// Defines the properties sent when sharing a file with another user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request {
-    request: String,
+    pub request: String,
 }
 
 
 /// Defines the properties sent when acknowledging the reception of a shared file from another user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
-    filename: String,
-    data: Vec<u8>,
+    pub filename: String,
+    pub data: Vec<u8>,
 }

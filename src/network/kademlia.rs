@@ -1,0 +1,58 @@
+use std::collections::HashMap;
+use libp2p::{kad::{self, QueryId}, PeerId};
+use crate::state::STATE;
+
+
+pub async fn handle_event(event: libp2p::kad::Event, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String)>) {
+
+    match event {
+
+        kad::Event::OutboundQueryProgressed { result, id, ..} => {
+                
+            match result {
+
+                kad::QueryResult::GetRecord(Ok(
+                    kad::GetRecordOk::FoundRecord(kad::PeerRecord {
+                        record: kad::Record { key, value, ..},
+                        ..
+                    })
+                )) => {
+                    match serde_cbor::from_slice::<String>(&value) {
+                        
+                        Ok(nickname) => {
+                            log::info!("Got record {:?} {:?}", std::str::from_utf8(key.as_ref()).unwrap(), nickname);
+
+                            let mut state = STATE.lock().unwrap();
+
+                            if nickname_fetch_queue.contains_key(&id) {
+                                let msg = nickname_fetch_queue.remove(&id).expect("Message was not in queue");
+                                state.messages.lock().unwrap().push(format!("{}: {}", nickname, msg.1.to_string()));
+                                state.nicknames.insert(msg.0.to_string(), nickname);
+                            }                                
+                        }
+                        Err(e) => {
+                            log::info!("Error deserializing {e:?}");
+                        }
+                    }
+                }
+
+                kad::QueryResult::GetRecord(Err(err)) => {
+                    log::info!("Failed to get record {err:?}");
+                }
+
+                kad::QueryResult::PutRecord(Ok(kad::PutRecordOk { key })) => {
+                    log::info!("Successfully put record {:?}", std::str::from_utf8(key.as_ref()).unwrap());
+                }
+
+                kad::QueryResult::PutRecord(Err(err)) => {
+                    log::info!("Failed to put record {err:?}");
+                }
+
+                _ => {}
+
+            }
+        }
+
+        _ => {}
+    }
+}

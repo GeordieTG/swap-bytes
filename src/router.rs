@@ -1,4 +1,4 @@
-use crate::network::Client;
+use crate::network::network::Client;
 use crate::state::STATE;
 use crate::ui::global_ui;
 use crate::ui::direct_ui;

@@ -1,15 +1,15 @@
-2024-08-16 16:13:57 [INFO] - Application started
-2024-08-16 16:13:59 [INFO] - Listening on address: /ip4/127.0.0.1/udp/64594/quic-v1
-2024-08-16 16:13:59 [INFO] - Listening on address: /ip4/10.196.79.33/udp/64594/quic-v1
-2024-08-16 16:13:59 [INFO] - Connected with person with id: 12D3KooWGJCPitBV35cDvEdvxeLC9iRbUgHGxuJmvUdor4G2SuUX
-2024-08-16 16:13:59 [INFO] - My nickname is Mac
-2024-08-16 16:13:59 [INFO] - Established connection with 12D3KooWGJCPitBV35cDvEdvxeLC9iRbUgHGxuJmvUdor4G2SuUX
-20242024-08-16 16:13:59 [INFO] - Established connection with 12D3KooWRGw3vaRYoJSPSK4ErbFLWmniJGE3prkNMQatostHy2024-08-16 16:13:59 [INFO] - Successfully put record "12D3KooWRGw3vaRYoJSPSK4ErbFLWmniJGE3prkNMQatostHy7bd"
-20242024-08-16 16:14:14 [INFO] - Received message: Hi
-2024-08-16 16:14:14 [INFO] - Got record "12D3KooWRGw3vaRYoJSPSK4ErbFLWmniJGE3prkNMQatostHy7bd" "Mac"
-2024-08-16 16:14:14 [INFO] - Got record "12D3KooWRGw3vaRYoJSPSK4ErbFLWmniJGE3prkNMQatostHy7bd" "Mac"
-20242024-08-16 16:14:31 [INFO] - Received request: R2024-08-16 16:14:40 [INFO] - Received response: Response { filename: "swapbytes.txt", data: [] }
-2024-08-16 16:142024-08-16 17:55:16 [INFO] - Listening on address: /ip4/10.196.72024-08-16 17:55:16 [IN2024-08-16 17:57:21 [INFO] - Listening on address: /ip4/10.196.72024-08-16 17:57:21 [IN2024-08-16 17:58:12 [INFO] - Listening on address: /ip4/10.196.72024-08-16 17:58:12 [IN2024-08-16 18:07:01 [INFO] - Listening on address: /ip4/10.196.79.33/udp/64594/quic-v1
-2024-08-16 18:08:16 [INFO] - Listening on address: /ip4/10.196.72024-08-16 18:08:16 [IN2024-08-16 18:16:30 [INFO] - Listening on address: /ip4/192.168.2024-08-16 18:16:30 [IN2024-08-16 18:16:31 [INFO] - Connected with person with id: 12D32024-08-16 18:16:31 [INFO] - Connected with perso2024-08-16 18:16:31 [INFO] - My nickname is Mac
-2024-08-16 18:16:31 [INFO] - Established connection with 12D3KooWGJCPitBV35cDvEdvxeLC9iRbUgHGxuJmvUdor4G2SuUX
-2024-08-16 18:16:31 [INFO] - Established connection with 12D3KooWGJC2024-08-16 18:16:31 [INFO] - Established c2024-08-16 18:16:31 [INFO] - Successfully put record "12D3KooWRGw3va2024-08-16 18:16:31 [INFO] - Successfully put record "12D3KooWGJCPitBV35cDvEdvxeLC9iRbUgHGxuJmvUdor4G2SuUX"
+2024-08-20 15:19:18 [INFO] - Application started
+2024-08-20 15:19:22 [INFO] - Listening on address: /ip4/192.168.1.72/udp/53063/quic-v1
+2024-08-20 15:19:22 [INFO] - Connected with person with id: 12D3KooWPMWRDYbUPWTcQHiQjpnxiZA5sV9T1p1FTCy6W6VCC5ET
+2024-08-20 15:19:22 [INFO] - My nickname is Mac
+2024-08-202024-08-20 15:19:22 [INFO] - Connected with person with id: 12D3KooWQG6XfgwbbAdyoKqLAufQ2LQa9V4JuyNaHzAk1Yc8hKzj
+2024-08-20 15:19:22 [INFO] - My nickname is Geordie
+2024-08-20 15:19:22 [INFO] - Successfully put record "12D3KooWPMWRDYbUPWTcQHiQjpnxiZA5sV9T1p1FTCy6W6VCC5ET"
+2024-08-20 15:19:24 [INFO] - Received message: hi
+2024-08-20 15:19:24 [INFO] - Got record "12D3KooWQG6XfgwbbAdyoKqLAufQ2LQa9V4JuyNaHzAk1Yc8hKzj" "Mac"
+2024-08-20 15:19:24 [INFO] - Got record "12D3KooWQG6XfgwbbAdyoKqLAufQ2LQa9V4JuyNaHzAk1Yc8hKzj" "Mac"
+2024-08-20 152024-08-20 15:19:26 [INFO] - Received message: hi
+2024-08-20 15:19:26 [INFO] - Got record "12D3KooWPMWRDYbUPWTcQHiQjpnxiZA5sV9T1p1FTCy6W6VCC5ET" "Geordie"
+2024-08-20 15:19:26 [INFO] - Got record "12D3KooWPMWRDYbUPWTcQHiQjpnxiZA5sV9T1p1FTCy6W6VCC5ET" "Geordie"
+2024-08-20 15:19:34 [INFO] - Received request: Reque2024-08-20 15:19:42 [INFO] - Received response: Response { filename: "swapbytes.txt", data: [116, 104, 105, 115, 32, 115, 104, 105, 116, 32, 103, 111, 110, 32, 98, 108, 111, 119, 32, 117, 112, 32, 117, 114, 32, 99, 111, 109, 112, 117, 116, 101, 114] }
+2024-08-20 15:19:42 [INFO] - File swapbytes.txt received and saved successfully

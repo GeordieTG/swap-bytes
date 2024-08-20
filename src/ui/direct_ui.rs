@@ -5,7 +5,7 @@ use ratatui::{
     widgets::*,
 };
 
-use crate::{network::Client, state::STATE};
+use crate::{network::network::Client, state::STATE};
 
 use derive_setters::Setters;
 use ratatui::{
@@ -207,6 +207,8 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
                                     .expect("Peer not found in the list");
                                 client.send_request(state.input.clone(), *selected_user).await;
                                 unsafe { SHOW_REQUEST_POPUP = false };
+                                drop(peers);
+                                state.input.clear();
                             }
                         } else {
                             // Incoming Request Section
@@ -220,6 +222,7 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
 
                                 client.send_response("swapbytes.txt".to_string(), state.input.to_string(), channel).await;
                                 unsafe { SHOW_RESPONSE_POPUP = false };
+                                state.input.clear();
                             }
                         }
                     }
