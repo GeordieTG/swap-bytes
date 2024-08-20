@@ -33,7 +33,7 @@ pub fn render(frame: &mut Frame) {
 
 
 
-pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> {
+pub async fn handle_events(_client: &mut Client) -> Result<bool, std::io::Error> {
 
     let mut state = STATE.lock().unwrap();
 

@@ -1,5 +1,5 @@
 use libp2p_request_response::ResponseChannel;
-use libp2p::{gossipsub, kad::QueryId, mdns, noise, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{gossipsub, kad::QueryId, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
 use futures::StreamExt;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
@@ -10,11 +10,11 @@ use futures::SinkExt;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Mode;
-use crate::network::mdns as mdns_events;
-use crate::network::gossipsub as gossibsub_events;
-use crate::network::kademlia as kademlia_events;
-use crate::network::request_response as reqyest_response_events;
-
+use crate::network::behaviour::mdns as mdns_events;
+use crate::network::behaviour::gossipsub as gossibsub_events;
+use crate::network::behaviour::kademlia as kademlia_events;
+use crate::network::behaviour::request_response as reqyest_response_events;
+use crate::network::behaviour::rendezvous as rendezvous_events;
 
 /// Defines the behaviour of our libp2p application
 #[derive(NetworkBehaviour)]
@@ -22,7 +22,9 @@ pub struct ChatBehaviour {
     pub mdns: mdns::tokio::Behaviour,
     pub gossipsub: gossipsub::Behaviour,
     pub request_response: request_response::cbor::Behaviour<Request, Response>,
-    pub kademlia: kad::Behaviour<MemoryStore>
+    pub kademlia: kad::Behaviour<MemoryStore>,
+    pub rendezvous: rendezvous::client::Behaviour,
+    pub ping: ping::Behaviour,
 }
 
 
@@ -124,6 +126,9 @@ pub enum Command {
 /// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
+
+    let rendezvous_point_address = "/ip4/127.0.0.1/tcp/62649".parse::<Multiaddr>().unwrap();
+
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
         .with_tcp(
@@ -150,6 +155,8 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
                     request_response::Config::default().with_request_timeout(Duration::from_secs(7200)),
                 ),
                 kademlia: kad::Behaviour::new(key.public().to_peer_id(), MemoryStore::new(key.public().to_peer_id())),
+                rendezvous: rendezvous::client::Behaviour::new(key.clone()),
+                ping: ping::Behaviour::new(ping::Config::new().with_interval(Duration::from_secs(1))),
             })
         })?
         .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(7200)))
@@ -159,7 +166,12 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
         let topic = gossipsub::IdentTopic::new("global");
         swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-        swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+
+        let external_address: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
+        swarm.listen_on(external_address.clone())?;
+        swarm.add_external_address(external_address.clone());
+
+        swarm.dial(rendezvous_point_address.clone()).unwrap();
 
         let (command_sender, command_receiver) = mpsc::channel(0);
 
@@ -213,6 +225,10 @@ impl EventLoop {
     /// Listens for incoming libp2p requests and handles them accordingly.
     async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>) {
 
+        let rendezvous_point: PeerId= "12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"
+        .parse()
+        .unwrap();
+
         match event {
 
             // Initial setup
@@ -222,6 +238,40 @@ impl EventLoop {
                 let peer_id = self.swarm.local_peer_id().clone();
                 self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
             },
+
+            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
+                log::info!(
+                    "Connected to rendezvous point, discovering nodes in '{}' namespace ...",
+                    "swapbytes"
+                );
+
+                self.swarm.behaviour_mut().rendezvous.discover(
+                    Some(rendezvous::Namespace::new("swapbytes".to_string()).unwrap()),
+                    None,
+                    None,
+                    rendezvous_point,
+                );
+            }
+
+            SwarmEvent::ConnectionClosed {
+                peer_id,
+                cause: Some(error),
+                ..
+            } if peer_id == rendezvous_point => {
+                log::info!("Lost connection to rendezvous point {}", error);
+            }
+    
+            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
+                if let Err(error) = self.swarm.behaviour_mut().rendezvous.register(
+                    rendezvous::Namespace::from_static("rendezvous"),
+                    rendezvous_point,
+                    None,
+                ) {
+                    log::info!("Failed to register: {error}");
+                    return;
+                }
+                log::info!("Connection established with rendezvous point {}", peer_id);
+            }
 
             // Handle MDNS events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(event)) => {
@@ -242,8 +292,22 @@ impl EventLoop {
             SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(event)) => {
                 reqyest_response_events::handle_event(event).await;
             }
-        
-            _ => {}
+
+            // Handle Rendezvous Events
+            SwarmEvent::Behaviour(ChatBehaviourEvent::Rendezvous(event)) => {
+                rendezvous_events::handle_event(event, &mut self.swarm).await;
+            }
+
+            SwarmEvent::Behaviour(ChatBehaviourEvent::Ping(ping::Event {
+                peer,
+                result: Ok(rtt),
+                ..
+            })) if peer != rendezvous_point => {
+                log::info!("Ping is {}ms", rtt.as_millis())
+            }
+            other => {
+                log::info!("Unhandled {:?}", other);
+            }
         }
     }
 

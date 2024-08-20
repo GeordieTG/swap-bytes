@@ -1,6 +1,6 @@
 use libp2p::{kad, mdns, PeerId, Swarm};
 use crate::state::{self, STATE};
-use super::network::ChatBehaviour;
+use crate::network::network::ChatBehaviour;
 
 
 pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>) {

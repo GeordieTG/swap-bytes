@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use libp2p::{gossipsub, kad::{self, QueryId}, PeerId, Swarm};
 
-use super::network::ChatBehaviour;
+use crate::network::network::ChatBehaviour;
 
 pub async fn handle_event(event: libp2p::gossipsub::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String, String)>) {
 

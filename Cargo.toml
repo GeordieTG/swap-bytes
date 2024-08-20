@@ -1,13 +1,12 @@
 [package]
-name = "SENG473-A1"
+name = "swapbytes"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 ratatui = "0.28.0"
-libp2p = { version = "0.53.2", features = ["tokio", "gossipsub", "mdns", "noise", "macros", "tcp", "quic", "yamux", "request-response", "kad"] }
+libp2p = { version = "0.53.2", features = ["tokio", "ping", "rendezvous", "identify", "gossipsub", "mdns", "noise", "macros", "tcp", "quic", "yamux", "request-response", "kad"] }
 libp2p-request-response = { version = "0.26.3", features = ["cbor"] }
-# runtime for async applications
 tokio = { version = "1.38.1", features = ["full"] }
 async-trait = "0.1.81"
 futures = "0.3.30"

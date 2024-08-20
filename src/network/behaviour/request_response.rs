@@ -1,7 +1,7 @@
 use libp2p::request_response::{self};
 use libp2p_request_response::Message;
 use crate::state::STATE;
-use super::network::{Request, Response};
+use crate::network::network::{Request, Response};
 
 pub async fn handle_event(event: libp2p::request_response::Event<Request, Response>) {
 

@@ -1,21 +1,6 @@
-pub mod network {
-    pub mod network;
-    pub mod mdns;
-    pub mod gossipsub;
-    pub mod request_response;
-    pub mod kademlia;
-}
-pub mod router;
-pub mod types;
-pub mod state;
-pub mod ui {
-    pub mod global;
-    pub mod rooms_menu;
-    pub mod direct;
-    pub mod room;
-    pub mod landing;
-    pub mod rating;
-}
+use swapbytes::network::network;
+use swapbytes::ui;
+
 use std::io as std_out;
 use tokio::spawn;
 use std::error::Error;
@@ -38,7 +23,7 @@ use ratatui::{
 /// Logs can be found in "app.log"
 fn setup_logger() -> Result<(), Box<dyn Error>> {
 
-    let log_file = File::create("app.log")?;
+    let log_file = File::create("src/log/peer.log")?;
     Dispatch::new()
         .filter(|metadata| metadata.level() <= log::LevelFilter::Info)
         .format(|out, message, record| {
@@ -72,13 +57,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 
     // Libp2p Setup
-    let (mut client, event_loop) = network::network::new()?;    
+    let (mut client, event_loop) = network::new()?;    
 
     // Page to enter nickname
     let mut should_quit = false;
     while !should_quit {
-        terminal.draw(|f| ui::landing::render(f))?;
-        should_quit = ui::landing::handle_events().await?;
+        terminal.draw(|f| ui::page::landing::render(f))?;
+        should_quit = ui::page::landing::handle_events().await?;
     }
 
     // Enter the Application
@@ -87,8 +72,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Main UI Loop
     let mut should_quit = false;
     while !should_quit {
-        terminal.draw(|f| router::ui(f))?;
-        should_quit = router::handle_events( &mut client).await?;
+        terminal.draw(|f| ui::router::ui(f))?;
+        should_quit = ui::router::handle_events( &mut client).await?;
     }
 
     // UI Clean Up

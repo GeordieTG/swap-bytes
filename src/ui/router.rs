@@ -1,11 +1,11 @@
 use crate::network::network::Client;
 use crate::state::STATE;
-use crate::ui::global;
-use crate::ui::direct;
-use crate::ui::rating;
-use crate::ui::rooms_menu;
-use crate::ui::room;
-use crate::ui::landing;
+use crate::ui::page::global;
+use crate::ui::page::direct;
+use crate::ui::page::rating;
+use crate::ui::page::rooms_menu;
+use crate::ui::page::room;
+use crate::ui::page::landing;
 use ratatui::prelude::*;
 
 
