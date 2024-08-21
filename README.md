@@ -31,5 +31,5 @@ When receiving a file request, it will appear under the "Incoming Request" list 
 ### Rating a Peer 💁‍♀️
 In the event another user sends you a file, you will receive a notification through a pop up. The file will be downloaded to your computer as "swapbytes.txt" and you will be asked to rate the user depending on whether they sent you what you asked for (Good, Neutral or Bad).
 
-### Peer Ratings
+### Peer Ratings 📊
 Peer ratings are a way of acknowledging users who act morally or immorally on the platform. All users start with a peer rating of 0, and will recieve +1 for each "Good" rating and -1 for each "Bad" rating. The users exact rating is visisble next to their name in the "Request a File" list on the "Direct Messages" tab.
