@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Enter the Application
-    spawn(event_loop.run());
+    spawn(event_loop.run(client.clone()));
     
     // Main UI Loop
     let mut should_quit = false;

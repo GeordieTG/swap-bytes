@@ -10,7 +10,7 @@ use futures::SinkExt;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Mode;
-use crate::network::behaviour::mdns as mdns_events;
+use crate::{network::behaviour::mdns as mdns_events, state::{self, STATE}};
 use crate::network::behaviour::gossipsub as gossibsub_events;
 use crate::network::behaviour::kademlia as kademlia_events;
 use crate::network::behaviour::request_response as reqyest_response_events;
@@ -126,7 +126,6 @@ pub enum Command {
 /// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
-
     let rendezvous_point_address = "/ip4/127.0.0.1/tcp/62649".parse::<Multiaddr>().unwrap();
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
@@ -209,10 +208,10 @@ impl EventLoop {
     }
 
     /// Begins the libp2p event loop. To be called from the main application.
-    pub async fn run(mut self) {
+    pub async fn run(mut self, client: Client) {
         loop {
             tokio::select! {
-                event = self.swarm.select_next_some() => self.handle_event(event).await,
+                event = self.swarm.select_next_some() => self.handle_event(event, &mut client.clone()).await,
                 command = self.command_receiver.next() => match command {
                     Some(c) => self.handle_command(c).await,
                     None=>  return,
@@ -223,7 +222,7 @@ impl EventLoop {
 
 
     /// Listens for incoming libp2p requests and handles them accordingly.
-    async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>) {
+    async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>, mut client: &mut Client) {
 
         let rendezvous_point: PeerId= "12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"
         .parse()
@@ -237,21 +236,38 @@ impl EventLoop {
 
                 let peer_id = self.swarm.local_peer_id().clone();
                 self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
+
+
+                // Add your nickname to DHT
+                let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
+    
+                log::info!("My nickname is {}", state.nickname);
+                let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
+    
+                let record = kad::Record {
+                    key: kad::RecordKey::new(&self.swarm.local_peer_id().to_string()),
+                    value: nickname_bytes,
+                    publisher: None,
+                    expires: None,
+                };
+
+                self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
+                
             },
 
-            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
-                log::info!(
-                    "Connected to rendezvous point, discovering nodes in '{}' namespace ...",
-                    "swapbytes"
-                );
+            // SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
+            //     log::info!(
+            //         "Connected to rendezvous point, discovering nodes in '{}' namespace ...",
+            //         "swapbytes"
+            //     );
 
-                self.swarm.behaviour_mut().rendezvous.discover(
-                    Some(rendezvous::Namespace::new("swapbytes".to_string()).unwrap()),
-                    None,
-                    None,
-                    rendezvous_point,
-                );
-            }
+            //     self.swarm.behaviour_mut().rendezvous.discover(
+            //         Some(rendezvous::Namespace::new("swapbytes".to_string()).unwrap()),
+            //         None,
+            //         None,
+            //         rendezvous_point,
+            //     );
+            // }
 
             SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -273,14 +289,18 @@ impl EventLoop {
                 log::info!("Connection established with rendezvous point {}", peer_id);
             }
 
+            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id != rendezvous_point => {
+                log::info!("Connection established with peer {}", peer_id);
+            }
+
             // Handle MDNS events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(event)) => {
-                mdns_events::handle_event(event, &mut self.swarm).await;
+                mdns_events::handle_event(event, &mut self.swarm, &mut self.nickname_fetch_queue).await;
             }
 
             // Handle Gossipsub events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Gossipsub(event)) => {
-                gossibsub_events::handle_event(event, &mut self.swarm, &mut self.nickname_fetch_queue).await;
+                gossibsub_events::handle_event(event).await;
             }
 
             // Handle Kademlia events
@@ -302,9 +322,8 @@ impl EventLoop {
                 peer,
                 result: Ok(rtt),
                 ..
-            })) if peer != rendezvous_point => {
-                log::info!("Ping is {}ms", rtt.as_millis())
-            }
+            })) if peer != rendezvous_point => {}
+            
             other => {
                 log::info!("Unhandled {:?}", other);
             }

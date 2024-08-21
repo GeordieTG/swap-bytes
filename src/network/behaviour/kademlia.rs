@@ -26,12 +26,6 @@ pub async fn handle_event(event: libp2p::kad::Event, nickname_fetch_queue: &mut 
 
                             if nickname_fetch_queue.contains_key(&id) {
                                 let (peer_id, message, topic) = nickname_fetch_queue.remove(&id).expect("Message was not in queue");
-
-                                if topic == "global".to_string() {
-                                    state.messages.lock().unwrap().push(format!("{}: {}", nickname, message));
-                                } else {
-                                    state.room_chats.get_mut(&topic.to_string()).expect("").push(format!("{}: {}", nickname, message));
-                                }
                                 state.nicknames.insert(peer_id.to_string(), nickname);
                             }                                
                         }

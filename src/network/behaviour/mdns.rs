@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
+use libp2p::kad::QueryId;
 use libp2p::{kad, mdns, PeerId, Swarm};
 use crate::state::{self, STATE};
 use crate::network::network::ChatBehaviour;
 
 
-pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>) {
+pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String, String)>) {
 
     match event {
 
@@ -17,29 +20,19 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 {
                     let state = STATE.lock().unwrap();
                     let mut peers: std::sync::MutexGuard<Vec<PeerId>> = state.peers.lock().unwrap();
-                    peers.push(peer_id)
+                    peers.push(peer_id);
+                    drop(peers);
+                    drop(state);
                 }
-    
-                let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-    
-                // Add your nickname to DHT
-                if !state.has_added_nickname {
-    
-                    log::info!("My nickname is {}", state.nickname);
-                    let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
-        
-                    let record = kad::Record {
-                        key: kad::RecordKey::new(&swarm.local_peer_id().to_string()),
-                        value: nickname_bytes,
-                        publisher: None,
-                        expires: None,
-                    };
-    
-                    swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record locally");
-                }
+
+                
+                // Fetch the users nickname from the DHT
+                let key = kad::RecordKey::new(&peer_id.to_string());
+                let query_id = swarm.behaviour_mut().kademlia.get_record(key);
+                nickname_fetch_queue.insert(query_id, (peer_id, "".to_string(), "".to_string()));
+                
             }
         }
-
 
         mdns::Event::Expired(list) => {
             for (peer_id, _) in list {
