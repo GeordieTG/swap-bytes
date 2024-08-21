@@ -188,7 +188,8 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 pub struct EventLoop {
     swarm: Swarm<ChatBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
-    nickname_fetch_queue: HashMap<QueryId, (PeerId, String, String)>, // (PeerId, Message, Topic)
+    nickname_fetch_queue: HashMap<QueryId, PeerId>,
+    rating_fetch_queue: HashMap<QueryId, (String, String, String)>, // (PeerId, Message, Nickname, Topic)
 }
 
 
@@ -204,6 +205,7 @@ impl EventLoop {
             swarm,
             command_receiver,
             nickname_fetch_queue: HashMap::new(),
+            rating_fetch_queue: HashMap::new(),
         }
     }
 
@@ -237,16 +239,17 @@ impl EventLoop {
                 if address.to_string().contains("/ip4/127.0.0.1/udp") {
 
                     let peer_id = self.swarm.local_peer_id().clone();
-                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
 
                     // Add your nickname to DHT
+                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
                     let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-        
-                    log::info!("My nickname is {}", state.nickname);
                     let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
         
+                    let peer_id = &self.swarm.local_peer_id().to_string();
+                    let key = "nickname_".to_string() + peer_id;
+
                     let record = kad::Record {
-                        key: kad::RecordKey::new(&self.swarm.local_peer_id().to_string()),
+                        key: kad::RecordKey::new(&key),
                         value: nickname_bytes,
                         publisher: None,
                         expires: None,
@@ -254,8 +257,19 @@ impl EventLoop {
 
                     self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
 
+                    let key = "rating_".to_string() + peer_id;
+                    let rating_bytes = serde_cbor::to_vec(&0).unwrap();
+
+                    // Add your peer rating to DHT
+                    let record = kad::Record {
+                        key: kad::RecordKey::new(&key),
+                        value: rating_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
+
+                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
                 }
-                
             },
 
             // SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
@@ -303,12 +317,12 @@ impl EventLoop {
 
             // Handle Gossipsub events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Gossipsub(event)) => {
-                gossibsub_events::handle_event(event).await;
+                gossibsub_events::handle_event(event, &mut self.rating_fetch_queue, &mut self.swarm).await;
             }
 
             // Handle Kademlia events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Kademlia(event)) => {
-                kademlia_events::handle_event(event, &mut self.nickname_fetch_queue).await;
+                kademlia_events::handle_event(event, &mut self.nickname_fetch_queue, &mut self.rating_fetch_queue).await;
             }
     
             // Handle Request-Response events

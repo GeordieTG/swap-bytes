@@ -1,8 +1,10 @@
-use libp2p::gossipsub;
+use std::collections::HashMap;
 
-use crate::state::STATE;
+use libp2p::{gossipsub, kad::{self, QueryId}, Swarm};
 
-pub async fn handle_event(event: libp2p::gossipsub::Event) {
+use crate::{network::network::ChatBehaviour, state::STATE};
+
+pub async fn handle_event(event: libp2p::gossipsub::Event, rating_fetch_queue: &mut HashMap<QueryId, (String, String, String)>, swarm: &mut Swarm<ChatBehaviour>) {
 
     match event {
 
@@ -16,17 +18,15 @@ pub async fn handle_event(event: libp2p::gossipsub::Event) {
 
             log::info!("Received message: {} on Topic: {}", String::from_utf8_lossy(&message.data), topic.clone());
             
-            let message = String::from_utf8_lossy(&message.data).to_string();
+            let data = String::from_utf8_lossy(&message.data).to_string();
+            let state = STATE.lock().unwrap();
+            let nickname = state.nicknames.get(&peer_id.to_string()).expect("User not found").clone();            
 
-            let mut state = STATE.lock().unwrap();
-            
-            let nickname = state.nicknames.get(&peer_id.to_string()).expect("User not found").clone();
-
-            if topic == "global".to_string() {
-                state.messages.lock().unwrap().push(format!("{}: {}", nickname, message));
-            } else {
-                state.room_chats.get_mut(&topic.to_string()).expect("").push(format!("{}: {}", nickname, message));
-            }
+             // Fetch the users nickname from the DHT
+             let key_string = "rating_".to_string() + &peer_id.to_string();
+             let key = kad::RecordKey::new(&key_string);
+             let query_id = swarm.behaviour_mut().kademlia.get_record(key);
+            rating_fetch_queue.insert(query_id, (data, nickname, topic));
         }  
 
         _ => {}

@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use libp2p::kad::QueryId;
 use libp2p::{kad, mdns, PeerId, Swarm};
-use crate::state::{self, STATE};
+use crate::state::STATE;
 use crate::network::network::ChatBehaviour;
 
 
-pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String, String)>) {
+pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, PeerId>) {
 
     match event {
 
@@ -24,12 +24,12 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                     drop(peers);
                     drop(state);
                 }
-
                 
                 // Fetch the users nickname from the DHT
-                let key = kad::RecordKey::new(&peer_id.to_string());
+                let key_string = "nickname_".to_string() + &peer_id.to_string();
+                let key = kad::RecordKey::new(&key_string);
                 let query_id = swarm.behaviour_mut().kademlia.get_record(key);
-                nickname_fetch_queue.insert(query_id, (peer_id, "".to_string(), "".to_string()));
+                nickname_fetch_queue.insert(query_id, peer_id);
                 
             }
         }
