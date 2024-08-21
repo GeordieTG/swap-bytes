@@ -35,6 +35,7 @@ pub async fn handle_event(event: libp2p::request_response::Event<Request, Respon
                     }
 
                     let mut state = STATE.lock().unwrap();
+                    state.current_rating = Some(peer);
                     state.tab = 3;
                 },
             }

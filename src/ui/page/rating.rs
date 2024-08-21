@@ -19,7 +19,10 @@ pub fn render(frame: &mut Frame) {
     )
     .split(frame.area());
 
-    let notification = Paragraph::new("\n\nYou have just received a file! \nGive Geordie a rating for this trade: \n\n1: Bad  2: Neutral  3: Good  Esc: Skip")
+    let state = STATE.lock().unwrap();
+    let peer_id = state.current_rating.unwrap();
+    let text = format!("\n\nYou have just received a file! \nGive {} a rating for this trade: \n\n1: Bad  2: Neutral  3: Good", state.nicknames.get(&peer_id.to_string()).unwrap());
+    let notification = Paragraph::new(text)
         .block(
             Block::bordered()
                 .style(Style::default().fg(Color::Blue)).title("Rate a Peer")
@@ -33,9 +36,10 @@ pub fn render(frame: &mut Frame) {
 
 
 
-pub async fn handle_events(_client: &mut Client) -> Result<bool, std::io::Error> {
+pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> {
 
     let mut state = STATE.lock().unwrap();
+    let peer_id = state.current_rating.unwrap();
 
     if event::poll(std::time::Duration::from_millis(50))? {
         if let Event::Key(key) = event::read()? {
@@ -44,15 +48,14 @@ pub async fn handle_events(_client: &mut Client) -> Result<bool, std::io::Error>
                     KeyCode::Esc => return Ok(true),
                     KeyCode::Char('1') => {
                         state.tab = 2;
+                        client.update_rating(peer_id, -1).await;
                     }
                     KeyCode::Char('2') => {
                         state.tab = 2;
                     }
                     KeyCode::Char('3') => {
                         state.tab = 2;
-                    }
-                    KeyCode::Char('4') => {
-                        state.tab = 2;
+                        client.update_rating(peer_id, 1).await;
                     }
                     _ => {}
                 }

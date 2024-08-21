@@ -96,7 +96,7 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
 
                         {
                             let mut msgs: std::sync::MutexGuard<Vec<String>> = state.messages.lock().unwrap();
-                            msgs.push(format!("{}: {}", state.nickname, state.input.to_string()));
+                            msgs.push(format!("{}: {}", "You".to_string(), state.input.to_string()));
                         }
 
                         client.send_message(state.input.to_string(), "global".to_string()).await;

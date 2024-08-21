@@ -95,6 +95,19 @@ impl Client {
             .await
             .expect("Command receiver not to be dropped.");
     }
+
+    pub(crate) async fn update_rating (
+        &mut self,
+        peer: PeerId,
+        rating: i32,
+    ) {
+        self.sender
+            .send(Command::UpdateRating { peer, rating })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
+
+
 }
 
 
@@ -119,6 +132,10 @@ pub enum Command {
     },
     JoinRoom {
         room: String
+    },
+    UpdateRating {
+        peer: PeerId,
+        rating: i32
     }
 }
 
@@ -190,6 +207,7 @@ pub struct EventLoop {
     command_receiver: mpsc::Receiver<Command>,
     nickname_fetch_queue: HashMap<QueryId, PeerId>,
     rating_fetch_queue: HashMap<QueryId, (String, String, String)>, // (PeerId, Message, Nickname, Topic)
+    rating_update_queue: HashMap<QueryId, (PeerId, i32)> // (PeerId, Recent Rating)
 }
 
 
@@ -206,6 +224,7 @@ impl EventLoop {
             command_receiver,
             nickname_fetch_queue: HashMap::new(),
             rating_fetch_queue: HashMap::new(),
+            rating_update_queue: HashMap::new(),
         }
     }
 
@@ -322,7 +341,7 @@ impl EventLoop {
 
             // Handle Kademlia events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Kademlia(event)) => {
-                kademlia_events::handle_event(event, &mut self.nickname_fetch_queue, &mut self.rating_fetch_queue).await;
+                kademlia_events::handle_event(event, &mut self.nickname_fetch_queue, &mut self.rating_fetch_queue, &mut self.rating_update_queue, &mut self.swarm).await;
             }
     
             // Handle Request-Response events
@@ -389,14 +408,20 @@ impl EventLoop {
             Command::RespondFile { filename, filepath, channel } => {
 
                 let data = std::fs::read(&filepath).unwrap_or_else(|_| Vec::new());
-
-                log::info!("{:?}", data);
                 
                 self.swarm
                     .behaviour_mut()
                     .request_response
                     .send_response(channel, Response {filename, data })
                     .expect("Connection to peer to be still open.");
+            }
+
+            Command::UpdateRating { peer, rating } => {
+                // Fetch the users nickname from the DHT
+                let key_string = "rating_".to_string() + &peer.to_string();
+                let key = kad::RecordKey::new(&key_string);
+                let query_id = self.swarm.behaviour_mut().kademlia.get_record(key);
+                self.rating_update_queue.insert(query_id, (peer, rating));
             }
         }
     }

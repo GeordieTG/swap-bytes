@@ -20,7 +20,8 @@ pub struct GlobalState {
     pub peer_list_state: ListState,
     pub request_list_state: ListState,
     pub nicknames: HashMap<String, String>,
-    pub requests: Vec<(PeerId, String, ResponseChannel<Response>)>
+    pub requests: Vec<(PeerId, String, ResponseChannel<Response>)>,
+    pub current_rating: Option<PeerId>,
 }
 
 impl GlobalState {
@@ -41,6 +42,7 @@ impl GlobalState {
             request_list_state: ListState::default(),
             nicknames: HashMap::new(),
             requests: vec![],
+            current_rating: None,
         };
 
         // Initial Setup
