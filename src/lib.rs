@@ -8,7 +8,6 @@ pub mod network {
         pub mod rendezvous;
     }
 }
-pub mod state;
 pub mod ui {
     pub mod page {
         pub mod global;
@@ -20,3 +19,5 @@ pub mod ui {
     }
     pub mod router;
 }
+
+pub mod state;

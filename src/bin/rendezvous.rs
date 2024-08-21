@@ -12,7 +12,7 @@ use std::time::Duration;
 
 fn setup_logger() -> Result<(), Box<dyn Error>> {
 
-    let log_file = File::create("src/log/server.log")?;
+    let log_file = File::create("src/log/rendezvous.log")?;
     Dispatch::new()
         .filter(|metadata| metadata.level() <= log::LevelFilter::Info)
         .format(|out, message, record| {
