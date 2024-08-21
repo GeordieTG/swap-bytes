@@ -168,9 +168,9 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
         let external_address: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
         swarm.listen_on(external_address.clone())?;
-        swarm.add_external_address(external_address.clone());
+        // swarm.add_external_address(external_address.clone());
 
-        swarm.dial(rendezvous_point_address.clone()).unwrap();
+        // swarm.dial(rendezvous_point_address.clone()).unwrap();
 
         let (command_sender, command_receiver) = mpsc::channel(0);
 
@@ -234,24 +234,27 @@ impl EventLoop {
             SwarmEvent::NewListenAddr { address, ..} => {
                 log::info!("Listening on address: {address}");
 
-                let peer_id = self.swarm.local_peer_id().clone();
-                self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
+                if address.to_string().contains("/ip4/127.0.0.1/udp") {
 
+                    let peer_id = self.swarm.local_peer_id().clone();
+                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
 
-                // Add your nickname to DHT
-                let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-    
-                log::info!("My nickname is {}", state.nickname);
-                let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
-    
-                let record = kad::Record {
-                    key: kad::RecordKey::new(&self.swarm.local_peer_id().to_string()),
-                    value: nickname_bytes,
-                    publisher: None,
-                    expires: None,
-                };
+                    // Add your nickname to DHT
+                    let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
+        
+                    log::info!("My nickname is {}", state.nickname);
+                    let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
+        
+                    let record = kad::Record {
+                        key: kad::RecordKey::new(&self.swarm.local_peer_id().to_string()),
+                        value: nickname_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
 
-                self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
+                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
+
+                }
                 
             },
 
