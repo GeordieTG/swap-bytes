@@ -85,7 +85,7 @@ pub fn render(frame: &mut Frame) {
 
 
     // Tabs
-    frame.render_widget(Tabs::new(vec!["Global <1>", "Rooms <2>", "Direct Messages <3>"])
+    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
     .style(Style::default().white())
     .highlight_style(Style::default().yellow())
     .select(2)
@@ -153,15 +153,8 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Char('1') => {
+                    KeyCode::Tab => {
                         state.tab = 0;
-                    }
-                    KeyCode::Char('2') => {
-                        state.tab = 1;
-                    }
-                    KeyCode::Char('3') => {
-                        state.peer_list_state.select_first();
-                        state.tab = 2;
                     }
                     KeyCode::Char(c) => {
                         state.input.push(c);

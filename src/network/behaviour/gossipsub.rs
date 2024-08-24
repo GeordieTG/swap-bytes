@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use libp2p::{gossipsub, kad::{self, QueryId}, Swarm};
-use log::info;
 
 use crate::{network::network::ChatBehaviour, state::STATE};
 

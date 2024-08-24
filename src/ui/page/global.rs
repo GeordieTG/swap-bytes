@@ -32,7 +32,7 @@ pub fn render(frame: &mut Frame) {
     .split(main_layout[0]);
 
     // Nav Bar
-    frame.render_widget(Tabs::new(vec!["Global <1>", "Rooms <2>", "Direct Messages <3>"])
+    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
     .style(Style::default().white())
     .highlight_style(Style::default().yellow())
     .select(0)
@@ -67,7 +67,6 @@ pub fn render(frame: &mut Frame) {
 }
 
 
-
 pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> {
 
     let mut state = STATE.lock().unwrap();
@@ -77,14 +76,8 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Char('1') => {
-                        state.tab = 0;
-                    }
-                    KeyCode::Char('2') => {
+                    KeyCode::Tab => {
                         state.tab = 1;
-                    }
-                    KeyCode::Char('3') => {
-                        state.tab = 2;
                     }
                     KeyCode::Backspace => {
                         state.input.pop();

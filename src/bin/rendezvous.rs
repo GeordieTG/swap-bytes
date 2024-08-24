@@ -4,7 +4,7 @@ use futures::StreamExt;
 use swapbytes::network::network::{ChatBehaviour, ChatBehaviourEvent};
 use std::{error::Error, fs::File};
 use std::time::Duration;
-use libp2p::{gossipsub, kad::QueryId, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{gossipsub, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, Swarm};
 use libp2p::{identify, StreamProtocol};
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;

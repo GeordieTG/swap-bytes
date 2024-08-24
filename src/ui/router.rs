@@ -42,7 +42,7 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
 
     match tab {
         0 => global::handle_events(client).await,
-        1 => rooms_menu::handle_events(),
+        1 => rooms_menu::handle_events(client).await,
         2 => direct::handle_events(client).await,  
         3 => rating::handle_events(client).await,  
         4 => room::handle_events(client).await,

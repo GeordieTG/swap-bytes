@@ -46,7 +46,7 @@ pub fn render(frame: &mut Frame) {
     .split(main_layout[0]);
 
     // Nav Bar
-    frame.render_widget(Tabs::new(vec!["Global <1>", "Rooms <2>", "Direct Messages <3>"])
+    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
     .style(Style::default().white())
     .highlight_style(Style::default().yellow())
     .select(1)
@@ -62,7 +62,7 @@ pub fn render(frame: &mut Frame) {
     let messages = Paragraph::new(concatenated_messages)
         .block(
             Block::bordered()
-                .title(format!("Chatting in room {}", state.current_room))
+                .title(format!("Chatting in room {} | <Esc> to Go Back", state.current_room))
                 .style(Style::default().fg(Color::White))
         )
         .style(Style::default().fg(Color::White));
@@ -96,14 +96,11 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Char('1') => {
-                        state.tab = 0;
-                    }
-                    KeyCode::Char('2') => {
-                        state.tab = 1;
-                    }
-                    KeyCode::Char('3') => {
+                    KeyCode::Tab => {
                         state.tab = 2;
+                    }
+                    KeyCode::Esc => {
+                        state.tab = 1;
                     }
                     KeyCode::Backspace => {
                         state.input.pop();

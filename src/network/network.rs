@@ -1,5 +1,5 @@
 use libp2p_request_response::ResponseChannel;
-use libp2p::{gossipsub, kad::QueryId, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{gossipsub, kad::{store::RecordStore, QueryId}, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
 use futures::StreamExt;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
@@ -106,6 +106,24 @@ impl Client {
             .await
             .expect("Command receiver not to be dropped.");
     }
+    pub(crate) async fn create_room (
+        &mut self,
+        name: String,
+    ) {
+        self.sender
+            .send(Command::CreateRoom { name })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
+
+    pub(crate) async fn fetch_rooms (
+        &mut self,
+    ) {
+        self.sender
+            .send(Command::FetchRooms {  })
+            .await
+            .expect("Command receiver not to be dropped.");
+    }
 
 
 }
@@ -136,14 +154,18 @@ pub enum Command {
     UpdateRating {
         peer: PeerId,
         rating: i32
-    }
+    },
+    CreateRoom {
+        name: String
+    },
+    FetchRooms{}
 }
 
 
 /// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
-    let rendezvous_point_address = "/ip4/127.0.0.1/tcp/62649".parse::<Multiaddr>().unwrap();
+    let _rendezvous_point_address = "/ip4/127.0.0.1/tcp/62649".parse::<Multiaddr>().unwrap();
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
@@ -243,7 +265,7 @@ impl EventLoop {
 
 
     /// Listens for incoming libp2p requests and handles them accordingly.
-    async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>, mut client: &mut Client) {
+    async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>, mut _client: &mut Client) {
 
         let rendezvous_point: PeerId= "12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"
         .parse()
@@ -276,10 +298,10 @@ impl EventLoop {
 
                     self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
 
+                    // Add your peer rating to DHT
                     let key = "rating_".to_string() + peer_id;
                     let rating_bytes = serde_cbor::to_vec(&0).unwrap();
 
-                    // Add your peer rating to DHT
                     let record = kad::Record {
                         key: kad::RecordKey::new(&key),
                         value: rating_bytes,
@@ -290,20 +312,6 @@ impl EventLoop {
                     self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
                 }
             },
-
-            // SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
-            //     log::info!(
-            //         "Connected to rendezvous point, discovering nodes in '{}' namespace ...",
-            //         "swapbytes"
-            //     );
-
-            //     self.swarm.behaviour_mut().rendezvous.discover(
-            //         Some(rendezvous::Namespace::new("swapbytes".to_string()).unwrap()),
-            //         None,
-            //         None,
-            //         rendezvous_point,
-            //     );
-            // }
 
             SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -356,7 +364,7 @@ impl EventLoop {
 
             SwarmEvent::Behaviour(ChatBehaviourEvent::Ping(ping::Event {
                 peer,
-                result: Ok(rtt),
+                result: Ok(_rtt),
                 ..
             })) if peer != rendezvous_point => {}
             
@@ -373,6 +381,62 @@ impl EventLoop {
     async fn handle_command(&mut self, command: Command) {
 
         match command {
+
+            Command::FetchRooms {  } => {
+                let key = kad::RecordKey::new(&"rooms".to_string());
+                let room_record = self.swarm.behaviour_mut().kademlia.store_mut().get(&key);
+
+                if room_record.is_some() {
+                    let mut state = STATE.lock().unwrap();
+                    let mut rooms = serde_cbor::from_slice::<Vec<String>>(&room_record.unwrap().value).unwrap();
+                    let mut default_rooms = vec!["COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()];
+                    rooms.append(&mut default_rooms);
+                    state.rooms = rooms;
+                }
+                
+            }
+
+            Command::CreateRoom { name } => {
+                let key = kad::RecordKey::new(&"rooms".to_string());
+                let record = self.swarm.behaviour_mut().kademlia.store_mut().get(&key);
+                
+                if record.is_none() {
+
+                    let rooms = vec![name];
+                    let rooms_bytes = serde_cbor::to_vec(&rooms).unwrap();
+    
+                    let record = kad::Record {
+                        key: kad::RecordKey::new(&key),
+                        value: rooms_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
+
+                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("");
+
+                } else {
+                    let mut rooms: Vec<String> = match serde_cbor::from_slice(&record.unwrap().value) {
+                        Ok(rooms) => rooms,
+                        Err(e) => {
+                            eprintln!("Failed to deserialize room list: {:?}", e);
+                            return;
+                        }
+                    };
+    
+                    rooms.push(name.clone());
+    
+                    let rooms_bytes = serde_cbor::to_vec(&rooms).unwrap();
+    
+                    let record = kad::Record {
+                        key: kad::RecordKey::new(&key),
+                        value: rooms_bytes,
+                        publisher: None,
+                        expires: None,
+                    };
+    
+                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("");
+                }
+            }
 
             Command::JoinRoom { room } => {
                 let topic = gossipsub::IdentTopic::new(room.to_string());
