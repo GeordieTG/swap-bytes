@@ -155,6 +155,7 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
                     KeyCode::Char('q') => return Ok(true),
                     KeyCode::Tab => {
                         state.tab = 0;
+                        state.input = String::new();
                     }
                     KeyCode::Char(c) => {
                         state.input.push(c);

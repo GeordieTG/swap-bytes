@@ -50,15 +50,13 @@ pub fn render(frame: &mut Frame) {
     let create_room = Paragraph::new(input_str)
     .block(
         Block::bordered()
-            .title("Type new room name | Create new room <C>")
+            .title("Type new room name | Create new room <Right Arrow>")
             .style(Style::default().fg(Color::Blue))
     )
     .style(Style::default().fg(Color::White));
 
     frame.render_stateful_widget(rooms, main_layout[1], &mut state.room_list_state.clone());
     frame.render_widget(create_room, main_layout[2]);
-    
-
 }
 
 
@@ -74,10 +72,11 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
                     KeyCode::Tab => {
                         let mut state = STATE.lock().unwrap();
                         state.tab = 2;
+                        state.input = String::new();
                     }
-                    KeyCode::Char('c') => {
+                    KeyCode::Right => {
                         let mut state = STATE.lock().unwrap();
-                        if state.input != String::new() {
+                        if state.input != String::new() && !state.rooms.contains(&state.input) {
                             client.create_room(state.input.to_string()).await;
                             state.input = String::new();
                         }

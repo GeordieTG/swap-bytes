@@ -70,7 +70,7 @@ pub fn render(frame: &mut Frame) {
 pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> {
 
     let mut state = STATE.lock().unwrap();
-
+    
     if event::poll(std::time::Duration::from_millis(50))? {
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
@@ -78,6 +78,7 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
                     KeyCode::Char('q') => return Ok(true),
                     KeyCode::Tab => {
                         state.tab = 1;
+                        state.input = String::new();
                     }
                     KeyCode::Backspace => {
                         state.input.pop();
