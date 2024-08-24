@@ -41,7 +41,7 @@ pub fn render(frame: &mut Frame) {
 
     // Messages display
     let input_str: &str = &state.input;
-    let msgs = state.messages.lock().unwrap();
+    let msgs = state.messages.get("global").expect("Global Chat should be in the messages HashMap at all times");
     let message_str: Vec<String> = msgs.iter().map(|m| format!("{}", m)).collect();
     let concatenated_messages = message_str.join("\n");
     let messages = Paragraph::new(concatenated_messages)
@@ -89,8 +89,9 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
                     KeyCode::Enter => {
 
                         {
-                            let mut msgs: std::sync::MutexGuard<Vec<String>> = state.messages.lock().unwrap();
-                            msgs.push(format!("{}: {}", "You".to_string(), state.input.to_string()));
+                            let message = state.input.to_string().clone();
+                            let msgs: &mut Vec<String> = &mut state.messages.get_mut("global").expect("");
+                            msgs.push(format!("{}: {}", "You".to_string(), message));
                         }
 
                         client.send_message(state.input.to_string(), "global".to_string()).await;

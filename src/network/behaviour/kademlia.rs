@@ -60,12 +60,8 @@ pub async fn handle_event(
                                 };
 
                                 let mut state = STATE.lock().unwrap();
-
-                                if topic == "global".to_string() {
-                                    state.messages.lock().unwrap().push(msg);
-                                } else {
-                                    state.room_chats.get_mut(&topic.to_string()).expect("").push(msg);
-                                }
+                                state.messages.get_mut(&topic.to_string()).expect("").push(msg);
+                                
                             } else if rating_update_queue.contains_key(&id) {
                                 
                                 let (peer_id, adjustment) = rating_update_queue.remove(&id).expect("Message was not in queue");

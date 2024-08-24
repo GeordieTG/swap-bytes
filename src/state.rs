@@ -8,14 +8,12 @@ use crate::network::network::Response;
 
 pub struct GlobalState {
     pub nickname: String,
-    pub has_added_nickname: bool,
     pub tab: usize,
     pub input: String,
     pub current_room: String,
     pub peers: Arc<Mutex<Vec<PeerId>>>,
-    pub messages: Arc<Mutex<Vec<String>>>,
     pub rooms: Vec<String>,
-    pub room_chats: HashMap<String, Vec<String>>,
+    pub messages: HashMap<String, Vec<String>>,
     pub room_list_state: ListState,
     pub peer_list_state: ListState,
     pub request_list_state: ListState,
@@ -28,14 +26,11 @@ impl GlobalState {
 
     fn new() -> Self {
         let mut state = Self {
-            has_added_nickname: false,
             nickname: "Default".to_string(),
             tab: 5,
             input: String::new(),
-            current_room: "global".to_string(),
             peers: Arc::new(Mutex::new(Vec::new())),
-            messages: Arc::new(Mutex::new(Vec::new())),
-            room_chats: HashMap::new(),
+            messages: HashMap::new(),
             rooms: vec!["COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()],
             room_list_state: ListState::default(), 
             peer_list_state: ListState::default(),
@@ -43,13 +38,14 @@ impl GlobalState {
             nicknames: HashMap::new(),
             requests: vec![],
             current_rating: None,
+            current_room: "global".to_string(),
         };
 
         // Initial Setup
         state.room_list_state.select_first();
         state.peer_list_state.select_first();
         state.request_list_state.select_first();
-        state.messages.lock().unwrap().push("✨ Welcome to Global Chat!".to_string());
+        state.messages.insert("global".to_string(), vec!["✨ Welcome to Global Chat!".to_string()]);
         state
     }
 }

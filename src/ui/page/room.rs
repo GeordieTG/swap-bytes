@@ -11,7 +11,7 @@ pub fn render(frame: &mut Frame) {
     let mut state = STATE.lock().unwrap();
 
     let room_key = state.current_room.clone();
-    let room_chat_set = &mut state.room_chats;
+    let room_chat_set = &mut state.messages;
 
     // Add chat to local storage if not already
     if !room_chat_set.contains_key(&room_key.clone()) {
@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame) {
         let room_key = &state.current_room.clone();
 
         // Add welcome message
-        let msgs = state.room_chats.entry(room_key.clone()).or_default();
+        let msgs = state.messages.entry(room_key.clone()).or_default();
         msgs.push(format!("👋 Welcome to the {} room!", &room_key));
     }
 
@@ -56,7 +56,7 @@ pub fn render(frame: &mut Frame) {
     // Messages display
     let input_str: &str = &state.input;
     let room_key = state.current_room.clone();
-    let msgs = &state.room_chats;
+    let msgs = &state.messages;
     let message_str: Vec<String> = msgs[&room_key].iter().map(|m| format!("{}", m)).collect();
     let concatenated_messages = message_str.join("\n");
     let messages = Paragraph::new(concatenated_messages)
@@ -115,7 +115,7 @@ pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
                             let message = state.input.to_string();
                             let nickname = state.nickname.clone();
 
-                            let msgs = state.room_chats.entry(room_key.clone()).or_default();
+                            let msgs = state.messages.entry(room_key.clone()).or_default();
                             msgs.push(format!("{}: {}", nickname, message.clone()));
                             client.send_message(message, room_key).await;
                         }
