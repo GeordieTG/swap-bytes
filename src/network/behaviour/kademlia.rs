@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::{network::network::ChatBehaviour, state::STATE};
 
 #[derive(Deserialize)]
-#[serde(untagged)] // This allows deserialization of either variant.
+#[serde(untagged)]
 enum Value {
     Nickname(String),
     Rating(i32),

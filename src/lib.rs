@@ -18,6 +18,7 @@ pub mod ui {
         pub mod rating;
     }
     pub mod router;
+    pub mod components;
 }
 
 pub mod state;

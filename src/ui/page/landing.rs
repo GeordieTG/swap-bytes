@@ -21,10 +21,16 @@ pub fn render(frame: &mut Frame) {
     )
     .split(frame.area());
 
-    // Messages display
-    let input_str: &str = &state.input;
-    
+    // Swapbytes Title
+    let title = BigText::builder()
+        .pixel_size(PixelSize::Quadrant)
+        .alignment(ratatui::layout::Alignment::Center)
+        .centered()
+        .lines(vec!["Welcome to".white().into(), "SwapBytes".blue().into()])
+        .build();
+
     // User input
+    let input_str: &str = &state.input;
     let input_display = Paragraph::new(input_str)
     .block(
         Block::bordered()
@@ -33,17 +39,9 @@ pub fn render(frame: &mut Frame) {
     )
     .style(Style::default().fg(Color::White));
 
-    let title = BigText::builder()
-        .pixel_size(PixelSize::Quadrant)
-        .alignment(ratatui::layout::Alignment::Center)
-        .centered()
-        .lines(vec!["Welcome to".white().into(), "SwapBytes".blue().into()])
-        .build();
-
     // Render
     frame.render_widget(title, main_layout[1]);
     frame.render_widget(input_display, main_layout[2]);
-
 }
 
 

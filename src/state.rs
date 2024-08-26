@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 
 use crate::network::network::Response;
 
+// This is the application state for an indivdual peer
 pub struct GlobalState {
     pub nickname: String,
     pub tab: usize,
@@ -22,11 +23,12 @@ pub struct GlobalState {
     pub current_rating: Option<PeerId>,
 }
 
+// This sets up the state with default values
 impl GlobalState {
 
     fn new() -> Self {
         let mut state = Self {
-            nickname: "Default".to_string(),
+            nickname: String::new(),
             tab: 5,
             input: String::new(),
             peers: Arc::new(Mutex::new(Vec::new())),
@@ -41,7 +43,6 @@ impl GlobalState {
             current_room: "global".to_string(),
         };
 
-        // Initial Setup
         state.room_list_state.select_first();
         state.peer_list_state.select_first();
         state.request_list_state.select_first();
@@ -51,6 +52,7 @@ impl GlobalState {
 }
 
 
+// This creates a static instance that can be accessed and updated globally
 lazy_static! {
     pub static ref STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));
 }

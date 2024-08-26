@@ -30,7 +30,6 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 let key = kad::RecordKey::new(&key_string);
                 let query_id = swarm.behaviour_mut().kademlia.get_record(key);
                 nickname_fetch_queue.insert(query_id, peer_id);
-                
             }
         }
 

@@ -5,41 +5,14 @@ use ratatui::{
     widgets::*,
 };
 
-use crate::{network::network::Client, state::STATE};
+use crate::{network::network::Client, state::STATE, ui::components::navbar};
 
 pub fn render(frame: &mut Frame) {
 
-    let main_layout = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(10),
-            Constraint::Percentage(65),
-            Constraint::Percentage(20),
-        ],
-    )
-    .split(frame.area());
-
-    let centered_layout = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Percentage(35), // left padding
-            Constraint::Percentage(65), // center part for tabs
-        ],
-    )
-    .split(main_layout[0]);
-
-
-    // Tabs
-    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
-    .style(Style::default().white())
-    .highlight_style(Style::default().yellow())
-    .select(1)
-    , centered_layout[1]);
-
+    let main_layout = navbar(frame);
 
     // Room list display
     let state = STATE.lock().unwrap();
-
     let room_items: Vec<ListItem> = state.rooms.iter().map(|room| ListItem::new(room.as_str())).collect();
     let rooms = List::new(room_items)
         .block(Block::bordered().title("📚 Select Room to Enter"))

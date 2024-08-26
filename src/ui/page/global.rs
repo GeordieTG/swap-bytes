@@ -1,43 +1,16 @@
-use crate::{network::network::Client, state::STATE};
+use crate::{network::network::Client, state::STATE, ui::components::navbar};
 use ratatui::{
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
     widgets::*,
 };
 
-
+// This is the Ratatui UI for the Global Chat page.
 pub fn render(frame: &mut Frame) {
 
     let state = STATE.lock().unwrap();
 
-    // Page layout
-    let main_layout = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(10),
-            Constraint::Percentage(65),
-            Constraint::Percentage(20),
-        ],
-    )
-    .split(frame.area());
-
-    // Center Nav Bar
-    let centered_layout = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Percentage(35), 
-            Constraint::Percentage(65),
-        ],
-    )
-    .split(main_layout[0]);
-
-    // Nav Bar
-    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
-    .style(Style::default().white())
-    .highlight_style(Style::default().yellow())
-    .select(0)
-    , centered_layout[1]);
-
+    let main_layout = navbar(frame);
 
     // Messages display
     let input_str: &str = &state.input;
@@ -60,13 +33,13 @@ pub fn render(frame: &mut Frame) {
     )
     .style(Style::default().fg(Color::White));
 
-    // Render
     frame.render_widget(messages, main_layout[1]);
     frame.render_widget(input_display, main_layout[2]);
 
 }
 
 
+// This function handles all user input events for the Global Chat page.
 pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> {
 
     let mut state = STATE.lock().unwrap();
@@ -75,19 +48,23 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match key.code {
+
                     KeyCode::Char('q') => return Ok(true),
+
                     KeyCode::Tab => {
                         state.tab = 1;
                         state.input = String::new();
                     }
+
                     KeyCode::Backspace => {
                         state.input.pop();
                     }
+
                     KeyCode::Char(c) => {
                         state.input.push(c)
                     }
-                    KeyCode::Enter => {
 
+                    KeyCode::Enter => {
                         {
                             let message = state.input.to_string().clone();
                             let msgs: &mut Vec<String> = &mut state.messages.get_mut("global").expect("");
@@ -96,8 +73,8 @@ pub async fn handle_events(client: &mut Client) -> Result<bool, std::io::Error> 
 
                         client.send_message(state.input.to_string(), "global".to_string()).await;
                         state.input.clear();
-
                     }
+
                     _ => {}
                 }
             }

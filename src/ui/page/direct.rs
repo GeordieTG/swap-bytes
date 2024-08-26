@@ -5,7 +5,7 @@ use ratatui::{
     widgets::*,
 };
 
-use crate::{network::network::Client, state::STATE};
+use crate::{network::network::Client, state::STATE, ui::components::navbar};
 
 use derive_setters::Setters;
 use ratatui::{
@@ -55,24 +55,7 @@ pub fn render(frame: &mut Frame) {
 
     let mut state = STATE.lock().unwrap();
 
-    let main_layout = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(10),
-            Constraint::Percentage(65),
-            Constraint::Percentage(20),
-        ],
-    )
-    .split(frame.area());
-
-    let centered_layout = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Percentage(35), // left padding
-            Constraint::Percentage(65), // center part for tabs
-        ],
-    )
-    .split(main_layout[0]);
+    let main_layout = navbar(frame);
 
     let horizontal_layout = Layout::new(
         Direction::Horizontal,
@@ -82,15 +65,6 @@ pub fn render(frame: &mut Frame) {
         ],
     )
     .split(main_layout[1]);
-
-
-    // Tabs
-    frame.render_widget(Tabs::new(vec!["Global", "Rooms", "Direct Messages"])
-    .style(Style::default().white())
-    .highlight_style(Style::default().yellow())
-    .select(2)
-    , centered_layout[1]);
-
 
     // Request a file
     let peers = state.peers.lock().unwrap();
@@ -110,8 +84,6 @@ pub fn render(frame: &mut Frame) {
         .highlight_style(Style::default().fg(Color::Yellow));
 
     frame.render_stateful_widget(peers, horizontal_layout[0], &mut state.peer_list_state);
-
-
 
     // Incoming Requests
     let incoming_requests = &state.requests;

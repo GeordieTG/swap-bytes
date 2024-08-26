@@ -33,7 +33,6 @@ pub struct Client {
     sender: mpsc::Sender<Command>,
 }
 
-
 impl Client {
     
     /// Listen for incoming connections on the given address.
@@ -313,26 +312,6 @@ impl EventLoop {
                 }
             },
 
-            SwarmEvent::ConnectionClosed {
-                peer_id,
-                cause: Some(error),
-                ..
-            } if peer_id == rendezvous_point => {
-                log::info!("Lost connection to rendezvous point {}", error);
-            }
-    
-            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id == rendezvous_point => {
-                if let Err(error) = self.swarm.behaviour_mut().rendezvous.register(
-                    rendezvous::Namespace::from_static("rendezvous"),
-                    rendezvous_point,
-                    None,
-                ) {
-                    log::info!("Failed to register: {error}");
-                    return;
-                }
-                log::info!("Connection established with rendezvous point {}", peer_id);
-            }
-
             SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id != rendezvous_point => {
                 log::info!("Connection established with peer {}", peer_id);
             }
@@ -361,16 +340,8 @@ impl EventLoop {
             SwarmEvent::Behaviour(ChatBehaviourEvent::Rendezvous(event)) => {
                 rendezvous_events::handle_event(event, &mut self.swarm).await;
             }
-
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Ping(ping::Event {
-                peer,
-                result: Ok(_rtt),
-                ..
-            })) if peer != rendezvous_point => {}
             
-            other => {
-                log::info!("Unhandled {:?}", other);
-            }
+            _ => {}
         }
     }
 
@@ -452,9 +423,7 @@ impl EventLoop {
 
             Command::SendMessage { message , room} => {
                 let topic = gossipsub::IdentTopic::new(room);
-                if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()) {
-                    log::info!("Error publishing: {:?}", err)
-                }
+                self.swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()).expect("");
             }
 
             Command::RequestFile {
