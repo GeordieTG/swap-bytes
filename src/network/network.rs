@@ -1,20 +1,20 @@
 use libp2p_request_response::ResponseChannel;
-use libp2p::{gossipsub, kad::{store::RecordStore, QueryId}, mdns, noise, ping, rendezvous, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
+use libp2p::{gossipsub, kad::{store::RecordStore, QueryId}, mdns, noise, request_response::{self, ProtocolSupport}, swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm};
 use futures::StreamExt;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use libp2p::StreamProtocol;
 use std::{error::Error, time::Duration};
 use futures::channel::{mpsc, oneshot};
-use futures::SinkExt;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Mode;
-use crate::{network::behaviour::mdns as mdns_events, state::{self, STATE}};
+use crate::{network::behaviour::mdns as mdns_events, state::STATE};
 use crate::network::behaviour::gossipsub as gossibsub_events;
 use crate::network::behaviour::kademlia as kademlia_events;
 use crate::network::behaviour::request_response as reqyest_response_events;
-use crate::network::behaviour::rendezvous as rendezvous_events;
+
+use super::client::Client;
 
 /// Defines the behaviour of our libp2p application
 #[derive(NetworkBehaviour)]
@@ -22,109 +22,22 @@ pub struct ChatBehaviour {
     pub mdns: mdns::tokio::Behaviour,
     pub gossipsub: gossipsub::Behaviour,
     pub request_response: request_response::cbor::Behaviour<Request, Response>,
-    pub kademlia: kad::Behaviour<MemoryStore>,
-    pub rendezvous: rendezvous::client::Behaviour,
-    pub ping: ping::Behaviour,
+    pub kademlia: kad::Behaviour<MemoryStore>
 }
 
 
-#[derive(Clone)]
-pub struct Client {
-    sender: mpsc::Sender<Command>,
+/// Defines the properties sent when sharing a file with another user
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Request {
+    pub message: String,
 }
 
-impl Client {
-    
-    /// Listen for incoming connections on the given address.
-    pub(crate) async fn _start_listening(
-        &mut self,
-        addr: Multiaddr,
-    ) -> Result<(), Box<dyn Error + Send>> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::StartListening { addr, sender })
-            .await
-            .expect("Command receiver not to be dropped.");
-        receiver.await.expect("Sender not to be dropped.")
-    }
 
-
-    /// Send a given message the user has typed in the UI.
-    pub(crate) async fn send_message(
-        &mut self,
-        message: String,
-        room: String
-    ) {
-        self.sender
-            .send(Command::SendMessage { message, room })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-
-    pub(crate) async fn send_request(
-        &mut self,
-        request: String,
-        peer: PeerId
-    ) {
-        self.sender
-            .send(Command::RequestFile { request, peer })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-    pub(crate) async fn send_response(
-        &mut self,
-        filename: String,
-        filepath: String,
-        channel: ResponseChannel<Response>
-    ) {
-        self.sender
-            .send(Command::RespondFile { filename, filepath, channel })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-    pub(crate) async fn join_room(
-        &mut self,
-        room: String
-    ) {
-        self.sender
-            .send(Command::JoinRoom { room })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-    pub(crate) async fn update_rating (
-        &mut self,
-        peer: PeerId,
-        rating: i32,
-    ) {
-        self.sender
-            .send(Command::UpdateRating { peer, rating })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-    pub(crate) async fn create_room (
-        &mut self,
-        name: String,
-    ) {
-        self.sender
-            .send(Command::CreateRoom { name })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-    pub(crate) async fn fetch_rooms (
-        &mut self,
-    ) {
-        self.sender
-            .send(Command::FetchRooms {  })
-            .await
-            .expect("Command receiver not to be dropped.");
-    }
-
-
+/// Defines the properties sent when acknowledging the reception of a shared file from another user
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Response {
+    pub filename: String,
+    pub data: Vec<u8>,
 }
 
 
@@ -139,16 +52,13 @@ pub enum Command {
         room: String
     },
     RequestFile {
-        request: String,
+        message: String,
         peer: PeerId,
     },
     RespondFile {
         filename: String,
         filepath: String,
         channel: ResponseChannel<Response>
-    },
-    JoinRoom {
-        room: String
     },
     UpdateRating {
         peer: PeerId,
@@ -163,8 +73,6 @@ pub enum Command {
 
 /// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
-
-    let _rendezvous_point_address = "/ip4/127.0.0.1/tcp/62649".parse::<Multiaddr>().unwrap();
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
@@ -192,8 +100,6 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
                     request_response::Config::default().with_request_timeout(Duration::from_secs(7200)),
                 ),
                 kademlia: kad::Behaviour::new(key.public().to_peer_id(), MemoryStore::new(key.public().to_peer_id())),
-                rendezvous: rendezvous::client::Behaviour::new(key.clone()),
-                ping: ping::Behaviour::new(ping::Config::new().with_interval(Duration::from_secs(1))),
             })
         })?
         .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(7200)))
@@ -206,9 +112,6 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
         let external_address: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
         swarm.listen_on(external_address.clone())?;
-        // swarm.add_external_address(external_address.clone());
-
-        // swarm.dial(rendezvous_point_address.clone()).unwrap();
 
         let (command_sender, command_receiver) = mpsc::channel(0);
 
@@ -266,55 +169,13 @@ impl EventLoop {
     /// Listens for incoming libp2p requests and handles them accordingly.
     async fn handle_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>, mut _client: &mut Client) {
 
-        let rendezvous_point: PeerId= "12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"
-        .parse()
-        .unwrap();
-
         match event {
 
             // Initial setup
             SwarmEvent::NewListenAddr { address, ..} => {
                 log::info!("Listening on address: {address}");
-
-                if address.to_string().contains("/ip4/127.0.0.1/udp") {
-
-                    let peer_id = self.swarm.local_peer_id().clone();
-
-                    // Add your nickname to DHT
-                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
-                    let state: std::sync::MutexGuard<state::GlobalState> = STATE.lock().unwrap();
-                    let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
-        
-                    let peer_id = &self.swarm.local_peer_id().to_string();
-                    let key = "nickname_".to_string() + peer_id;
-
-                    let record = kad::Record {
-                        key: kad::RecordKey::new(&key),
-                        value: nickname_bytes,
-                        publisher: None,
-                        expires: None,
-                    };
-
-                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
-
-                    // Add your peer rating to DHT
-                    let key = "rating_".to_string() + peer_id;
-                    let rating_bytes = serde_cbor::to_vec(&0).unwrap();
-
-                    let record = kad::Record {
-                        key: kad::RecordKey::new(&key),
-                        value: rating_bytes,
-                        publisher: None,
-                        expires: None,
-                    };
-
-                    self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
-                }
+                self.setup(address);
             },
-
-            SwarmEvent::ConnectionEstablished { peer_id, .. } if peer_id != rendezvous_point => {
-                log::info!("Connection established with peer {}", peer_id);
-            }
 
             // Handle MDNS events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(event)) => {
@@ -336,12 +197,61 @@ impl EventLoop {
                 reqyest_response_events::handle_event(event).await;
             }
 
-            // Handle Rendezvous Events
-            SwarmEvent::Behaviour(ChatBehaviourEvent::Rendezvous(event)) => {
-                rendezvous_events::handle_event(event, &mut self.swarm).await;
+            other => {
+                log::info!("Unhandled {:?}", other);
             }
-            
-            _ => {}
+        }
+    }
+
+
+    // Sets up a user when they first join the network.
+    // Adds their nickname and assigns an inital peer rating of 0 to the Kademlia DHT.
+    fn setup(&mut self, address: Multiaddr) {
+
+        if address.to_string().contains("/ip4/127.0.0.1/udp") {
+
+            let peer_id = self.swarm.local_peer_id().clone();
+            self.swarm.behaviour_mut().kademlia.add_address(&peer_id, address);
+
+            // Add your nickname to DHT
+            let mut state= STATE.lock().unwrap();
+            let nickname_bytes = serde_cbor::to_vec(&state.nickname).unwrap();
+            let key = "nickname_".to_string() + &peer_id.to_string();
+
+            let record = kad::Record {
+                key: kad::RecordKey::new(&key),
+                value: nickname_bytes,
+                publisher: None,
+                expires: None,
+            };
+
+            self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
+
+            // Add your peer rating to DHT
+            let key = "rating_".to_string() + &peer_id.to_string();
+            let rating_bytes = serde_cbor::to_vec(&0).unwrap();
+
+            let record = kad::Record {
+                key: kad::RecordKey::new(&key),
+                value: rating_bytes,
+                publisher: None,
+                expires: None,
+            };
+
+            self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("Failed to store record");
+
+
+            // Connect to the default rooms
+            let default_rooms = &mut vec!["Global".to_string(), "COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()];
+            for room in default_rooms {
+                let topic = gossipsub::IdentTopic::new(room.to_string());
+                self.swarm.behaviour_mut().gossipsub.subscribe(&topic).expect("");
+
+                state.messages.entry(room.clone()).or_insert(vec![]);
+    
+                let msgs = state.messages.entry(room.clone()).or_default();
+                msgs.push(format!("✨ Welcome to the {} chat!", &room));
+            }   
         }
     }
 
@@ -355,16 +265,7 @@ impl EventLoop {
 
             Command::FetchRooms {  } => {
                 let key = kad::RecordKey::new(&"rooms".to_string());
-                let room_record = self.swarm.behaviour_mut().kademlia.store_mut().get(&key);
-
-                if room_record.is_some() {
-                    let mut state = STATE.lock().unwrap();
-                    let mut rooms = serde_cbor::from_slice::<Vec<String>>(&room_record.unwrap().value).unwrap();
-                    let mut default_rooms = vec!["COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()];
-                    rooms.append(&mut default_rooms);
-                    state.rooms = rooms;
-                }
-                
+                self.swarm.behaviour_mut().kademlia.get_record(key);
             }
 
             Command::CreateRoom { name } => {
@@ -386,6 +287,7 @@ impl EventLoop {
                     self.swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One).expect("");
 
                 } else {
+
                     let mut rooms: Vec<String> = match serde_cbor::from_slice(&record.unwrap().value) {
                         Ok(rooms) => rooms,
                         Err(e) => {
@@ -409,11 +311,6 @@ impl EventLoop {
                 }
             }
 
-            Command::JoinRoom { room } => {
-                let topic = gossipsub::IdentTopic::new(room.to_string());
-                self.swarm.behaviour_mut().gossipsub.subscribe(&topic).expect("");
-            }
-
             Command::StartListening { addr, sender } => {
                 let _ = match self.swarm.listen_on(addr) {
                     Ok(_) => sender.send(Ok(())),
@@ -423,11 +320,13 @@ impl EventLoop {
 
             Command::SendMessage { message , room} => {
                 let topic = gossipsub::IdentTopic::new(room);
-                self.swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()).expect("");
+                if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()) {
+                    log::info!("Error publishing: {:?}", err)
+                }
             }
 
             Command::RequestFile {
-                request,
+                message,
                 peer,
             } => {
 
@@ -435,7 +334,7 @@ impl EventLoop {
                     .swarm
                     .behaviour_mut()
                     .request_response
-                    .send_request(&peer, Request { request });
+                    .send_request(&peer, Request { message });
             }
 
             Command::RespondFile { filename, filepath, channel } => {
@@ -458,19 +357,4 @@ impl EventLoop {
             }
         }
     }
-}
-
-
-/// Defines the properties sent when sharing a file with another user
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Request {
-    pub request: String,
-}
-
-
-/// Defines the properties sent when acknowledging the reception of a shared file from another user
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Response {
-    pub filename: String,
-    pub data: Vec<u8>,
 }

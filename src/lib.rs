@@ -1,19 +1,18 @@
 pub mod network {
     pub mod network;
+    pub mod client;
     pub mod behaviour {
         pub mod mdns;
         pub mod gossipsub;
         pub mod request_response;
         pub mod kademlia;
-        pub mod rendezvous;
     }
 }
 pub mod ui {
     pub mod page {
-        pub mod global;
+        pub mod chat;
         pub mod rooms_menu;
         pub mod direct;
-        pub mod room;
         pub mod landing;
         pub mod rating;
     }

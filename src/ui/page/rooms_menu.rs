@@ -1,86 +1,110 @@
-use tokio::io;
+use std::rc::Rc;
+
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode},
+    crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
     widgets::*,
 };
 
-use crate::{network::network::Client, state::STATE, ui::components::navbar};
+use crate::{network::client::Client, state::STATE, ui::components::{input_component, list_component, Tab}};
 
-pub fn render(frame: &mut Frame) {
-
-    let main_layout = navbar(frame);
-
-    // Room list display
-    let state = STATE.lock().unwrap();
-    let room_items: Vec<ListItem> = state.rooms.iter().map(|room| ListItem::new(room.as_str())).collect();
-    let rooms = List::new(room_items)
-        .block(Block::bordered().title("📚 Select Room to Enter"))
-        .highlight_style(Style::default().fg(Color::Yellow));
- 
-    // Create room option
-    let input_str: &str = &state.input;
-    let create_room = Paragraph::new(input_str)
-    .block(
-        Block::bordered()
-            .title("Type new room name | Create new room <Right Arrow>")
-            .style(Style::default().fg(Color::Blue))
-    )
-    .style(Style::default().fg(Color::White));
-
-    frame.render_stateful_widget(rooms, main_layout[1], &mut state.room_list_state.clone());
-    frame.render_widget(create_room, main_layout[2]);
+/// A page for users to view all available rooms on the network and select one to join.
+pub struct RoomMenu {
+    input: String,
+    room_list_state: ListState,
 }
 
 
-pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
+/// A default implementation of the RoomMenu. Allows for the first item in the list to be selected.
+impl Default for RoomMenu {
+    fn default() -> Self {
+        let mut menu = Self {
+            input: String::new(),
+            room_list_state: ListState::default(),
+        };
+        menu.room_list_state.select_first();
+        menu
+    }
+}
 
-    client.fetch_rooms().await;
+impl RoomMenu {
 
-    if event::poll(std::time::Duration::from_millis(50))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Tab => {
-                        let mut state = STATE.lock().unwrap();
-                        state.tab = 2;
-                        state.input = String::new();
-                    }
-                    KeyCode::Right => {
-                        let mut state = STATE.lock().unwrap();
-                        if state.input != String::new() && !state.rooms.contains(&state.input) {
-                            client.create_room(state.input.to_string()).await;
-                            state.input = String::new();
-                        }
-                    }
-                    KeyCode::Backspace => {
-                        let mut state = STATE.lock().unwrap();
-                        state.input.pop();
-                    }
-                    KeyCode::Down => {
-                        let mut state = STATE.lock().unwrap();
-                        if state.room_list_state.selected().unwrap() != state.rooms.len() - 1 {
-                            state.room_list_state.select_next();
-                        }
-                    }
-                    KeyCode::Up => {
-                        let mut state = STATE.lock().unwrap();
-                        state.room_list_state.select_previous();
-                    }
-                    KeyCode::Char(c) => {
-                        let mut state = STATE.lock().unwrap();
-                        state.input.push(c)
-                    }
-                    KeyCode::Enter => {
-                        let mut state = STATE.lock().unwrap();
-                        state.current_room = state.rooms.get(state.room_list_state.selected().expect("")).expect("").to_string();
-                        state.tab = 4;
-                    }
-                    _ => {}
+    /// Simply renders the page consisting of a list of availabe rooms, and an input field at the bottom of the page to allow the
+    /// user to create new rooms on the network.
+    pub fn render(&self, frame: &mut Frame, layout: Rc<[Rect]>) {
+
+        // Room list display
+        let state = STATE.lock().unwrap();
+        let room_items: Vec<ListItem> = state.rooms.iter().map(|room| {
+        
+            let notification = state.notifications.get(room);
+
+            if notification == Some(&true) {
+                ListItem::new(format!("{} - New Messages", room.as_str()))
+            } else {
+                ListItem::new(format!("{}", room.as_str()))
+            }
+        
+        }).collect();
+
+
+        let rooms_display = list_component(room_items, "📚 Select Room to Enter".to_string());
+     
+        // Create room option
+        let input_display = input_component(self.input.as_str(), "Type new room name | Create new room <Right Arrow>".to_string());
+    
+        // Render
+        frame.render_stateful_widget(rooms_display, layout[1], &mut self.room_list_state.clone());
+        frame.render_widget(input_display, layout[2]);
+    }
+    
+    
+    /// Event handler for the RoomMenu Tab. Can use Up and Down Arrows to navigate the list of rooms and Enter to select a room to join.
+    /// The user also has the ability to create a new room by typing into the input field and push Right Arrow to confirm the creation.
+    pub async fn handle_events<T: FnMut(Tab)>(&mut self, client: &mut Client, key: KeyEvent, mut switch_tab_callback: T) {
+       
+        match key.code {
+            
+            // Navigate up the room list
+            KeyCode::Up => {
+                self.room_list_state.select_previous();
+            }
+            
+            // Navigate down the room list
+            KeyCode::Down => {
+                let state = STATE.lock().unwrap();
+                if self.room_list_state.selected().unwrap() != state.rooms.len() - 1 {
+                    self.room_list_state.select_next();
                 }
             }
+
+            // Allows for deletion of characters in the room creation box
+            KeyCode::Backspace => {
+                self.input.pop();
+            }
+
+            // User input into the room creation box
+            KeyCode::Char(c) => {
+                self.input.push(c)
+            }
+
+            // Select room
+            KeyCode::Enter => {
+                let mut state = STATE.lock().unwrap();
+                state.current_room = state.rooms.get(self.room_list_state.selected().expect("")).expect("").to_string();
+                switch_tab_callback(Tab::Chat);
+            }
+
+            // Create room based on current input
+            KeyCode::Right => {
+                let state = STATE.lock().unwrap();
+                if self.input != String::new() && !state.rooms.contains(&self.input) {
+                    client.create_room(self.input.to_string()).await;
+                    self.input = String::new();
+                }
+            }
+
+            _ => {}
         }
     }
-    Ok(false)
 }

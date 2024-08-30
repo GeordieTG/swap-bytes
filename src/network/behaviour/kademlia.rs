@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use libp2p::{kad::{self, QueryId}, PeerId, Swarm};
+use libp2p::{gossipsub, kad::{self, QueryId}, PeerId, Swarm};
 use serde::Deserialize;
 use crate::{network::network::ChatBehaviour, state::STATE};
 
@@ -8,9 +8,11 @@ use crate::{network::network::ChatBehaviour, state::STATE};
 enum Value {
     Nickname(String),
     Rating(i32),
+    Rooms(Vec<String>)
 }
 
 
+// Handles all Kademlia events that come through the network event loop.
 pub async fn handle_event(
     event: libp2p::kad::Event,
     nickname_fetch_queue: &mut HashMap<QueryId, PeerId>,
@@ -37,11 +39,9 @@ pub async fn handle_event(
                             log::info!("Got record {:?} {:?}", std::str::from_utf8(key.as_ref()).unwrap(), value);
 
                             if nickname_fetch_queue.contains_key(&id) {
-                                
                                 let mut state = STATE.lock().unwrap();
                                 let peer_id = nickname_fetch_queue.remove(&id).expect("Message was not in queue");
                                 state.nicknames.insert(peer_id.to_string(), nickname);
-
                             }                           
                         }
 
@@ -82,29 +82,36 @@ pub async fn handle_event(
                             }
                         }
 
+                        Ok(Value::Rooms(mut rooms)) => {
+                            let mut state = STATE.lock().unwrap();
+                            let mut default_rooms = vec!["Global".to_string(), "COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()];
+                            rooms.append(&mut default_rooms);
+                            state.rooms = rooms.clone();
+
+                            for room in rooms {
+                                
+                                let topic = gossipsub::IdentTopic::new(room.to_string());
+                                swarm.behaviour_mut().gossipsub.subscribe(&topic).expect("");
+
+                                if !state.messages.contains_key(&room) {
+                                    state.messages.entry(room.clone()).or_insert(vec![format!("✨ Welcome to the {} chat!", &room)]);
+                                }
+                            }   
+                        }
+
                         Err(e) => {
                             log::info!("Error deserializing {e:?}");
                         }
                     }
                 }
 
-                kad::QueryResult::GetRecord(Err(err)) => {
-                    log::info!("Failed to get record {err:?}");
+                other => {
+                    log::info!("Error {:?}", other);
                 }
-
-                kad::QueryResult::PutRecord(Ok(kad::PutRecordOk { key })) => {
-                    log::info!("Successfully put record {:?}", std::str::from_utf8(key.as_ref()).unwrap());
-                }
-
-                kad::QueryResult::PutRecord(Err(err)) => {
-                    log::info!("Failed to put record {err:?}");
-                }
-
-                _ => {}
-
             }
         }
-
-        _ => {}
+        other => {
+            log::info!("Error {:?}", other);
+        }
     }
 }

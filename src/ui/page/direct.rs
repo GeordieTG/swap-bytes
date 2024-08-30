@@ -1,201 +1,206 @@
-use tokio::io;
+use std::rc::Rc;
+use crate::{network::client::Client, state::STATE, ui::components::{input_component, list_component}};
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode},
+    crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
     widgets::*,
 };
 
-use crate::{network::network::Client, state::STATE, ui::components::navbar};
-
-use derive_setters::Setters;
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::{Style, Stylize},
-    text::{Line, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Widget, Wrap},
-    Frame,
-};
-
-
-#[derive(Debug, Default, Setters)]
-struct Popup<'a> {
-    #[setters(into)]
-    title: Line<'a>,
-    #[setters(into)]
-    content: Text<'a>,
-    border_style: Style,
-    title_style: Style,
-    style: Style,
+#[derive(Default, PartialEq)]
+enum Section {
+    #[default]
+    None,
+    Request,
+    Response
 }
 
-
-impl Widget for Popup<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        // ensure that all cells under the popup are cleared to avoid leaking content
-        Clear.render(area, buf);
-        let block = Block::new()
-            .title(self.title)
-            .title_style(self.title_style)
-            .borders(Borders::ALL)
-            .border_style(self.border_style);
-        Paragraph::new(self.content)
-            .wrap(Wrap { trim: true })
-            .style(self.style)
-            .block(block)
-            .render(area, buf);
-    }
+#[derive(Default)]
+pub struct Direct {
+    input: String,
+    peer_list_state: ListState,
+    request_list_state: ListState,
+    selected_section: Section,
+    popup: Section
 }
 
-static mut SHOW_REQUEST_POPUP: bool = false;
-static mut SHOW_RESPONSE_POPUP: bool = false;
-static mut SELECTED_SECTION: usize = 0;
+impl Direct {
 
-pub fn render(frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame, layout: Rc<[Rect]>) {
+    
+        // Allows to split the screen to have both Request and Received lists.
+        let horizontal_layout = Layout::new(
+            Direction::Horizontal,
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ],
+        )
+        .split(layout[1]);
 
-    let mut state = STATE.lock().unwrap();
+        // Request a file section
+        let peer_items = self.format_peers();
+        let peers_display = list_component(peer_items, "🌍 Request File".to_string());
+        frame.render_stateful_widget(peers_display, horizontal_layout[0], &mut self.peer_list_state.clone());
+        
 
-    let main_layout = navbar(frame);
+        // Incoming Requests section
+        let request_items = self.format_requests();
+        let requests_display = list_component(request_items, "🚀 Incoming Request".to_string());
+        frame.render_stateful_widget(requests_display, horizontal_layout[1], &mut self.request_list_state.clone());
+    
+    
+        // Display the input for request messages and response file paths when required
+        match self.popup  {
+            Section::Request => {
+                let popup = input_component(&self.input, "Request a file".to_string());
+                frame.render_widget(popup, layout[2]);
+            }
+            Section::Response => {
+                let popup = input_component(&self.input, "Enter a File Path to Send".to_string());
+                frame.render_widget(popup, layout[2]);
+            }
+            Section::None => {}
+        }
+    }
+    
+    
+    /// Handles key stroke events for the direct messages page.
+    pub async fn handle_events(&mut self, client: &mut Client, key: KeyEvent) {
+        
+        match key.code {
 
-    let horizontal_layout = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ],
-    )
-    .split(main_layout[1]);
+            KeyCode::Char(c) => {
+                self.input.push(c);
+            }
 
-    // Request a file
-    let peers = state.peers.lock().unwrap();
-    let peer_list: Vec<String> = peers.iter().map(|peer_id| format!("{}", peer_id)).collect();  
+            KeyCode::Backspace => {
+                self.input.pop();
+            }
 
-    let peer_items: Vec<ListItem> = peer_list
-    .iter()
-    .filter_map(|peer| {
-        state.nicknames.get(peer).map(|nickname| ListItem::new(format!("{}", nickname)))
-    })
+            KeyCode::Down => {
+                if self.popup == Section::None {
+                    match self.selected_section {
+                        Section::Request => self.peer_list_state.select_next(),
+                        Section::Response => self.request_list_state.select_next(),
+                        Section::None => {}
+                    }
+                }
+            }
 
-    .collect();
-    drop(peers);
+            KeyCode::Up => {
+                if self.popup == Section::None {
+                    match self.selected_section {
+                        Section::Request => self.peer_list_state.select_previous(),
+                        Section::Response => self.request_list_state.select_previous(),
+                        Section::None => {}
+                    }
+                }
+            }
 
-    let peers = List::new(peer_items)
-        .block(Block::bordered().title("🌍 Request File"))
-        .highlight_style(Style::default().fg(Color::Yellow));
+            KeyCode::Left => {
+                if self.popup == Section::None {
+                    self.selected_section = Section::Request;
+                    self.request_list_state.select(None);
+                    self.peer_list_state.select_first();
+                }
+            }
 
-    frame.render_stateful_widget(peers, horizontal_layout[0], &mut state.peer_list_state);
+            KeyCode::Right => {
+                if self.popup == Section::None {
+                    self.selected_section = Section::Response;
+                    self.peer_list_state.select(None);
+                    self.request_list_state.select_first();
+                }
+            }
 
-    // Incoming Requests
-    let incoming_requests = &state.requests;
-    let request_items: Vec<String> = incoming_requests.iter().map(|request| format!("{} - {}", state.nicknames.get(&request.0.to_string()).expect(""), request.1)).collect();  
-    let requests = List::new(request_items)
-        .block(Block::bordered().title("🚀 Incoming Request"))
-        .highlight_style(Style::default().fg(Color::Yellow));
+            KeyCode::Enter => {
+                match self.selected_section {
+                    Section::Request => self.handle_requests(client).await,
+                    Section::Response => self.handle_response(client).await,
+                    Section::None => {}
+                }
+            }
 
-    frame.render_stateful_widget(requests, horizontal_layout[1], &mut state.request_list_state);
-
-
-    if unsafe { SHOW_REQUEST_POPUP } {
-        let popup = Popup::default()
-        .content(state.input.clone())
-        .title("Request a file")
-        .title_style(Style::new().white().bold())
-        .border_style(Style::new().red());
-        frame.render_widget(popup, main_layout[2]);
+            _ => {}
+        }
     }
 
-    if unsafe { SHOW_RESPONSE_POPUP } {
-        let popup = Popup::default()
-        .content(state.input.clone())
-        .title("Enter a File Path to Send")
-        .title_style(Style::new().white().bold())
-        .border_style(Style::new().red());
-        frame.render_widget(popup, main_layout[2]);
+
+    /// Fetches connected peers from the global store and formats them in a way to be displayed in the Ratatui UI.
+    fn format_peers(&self) -> Vec<ListItem> {
+
+        let state = STATE.lock().unwrap();
+
+        let peers: Vec<ListItem> = state
+        .peers
+        .iter()
+        .filter_map(|peer_id| {
+            state.nicknames.get(&peer_id.to_string()).map(|nickname| ListItem::new(format!("{}", nickname.clone())))
+        })
+        .collect();
+
+        peers
     }
-}
 
 
-/// Handles key stroke events for the direct messages page.
-pub async fn handle_events(client: &mut Client) -> io::Result<bool> {
+    /// Fetches current incoming requests from the global store and formats them in a way to be displayed in the Ratatui UI.
+    fn format_requests(&self) -> Vec<ListItem>  {
 
-    let mut state = STATE.lock().unwrap();
+        let state = STATE.lock().unwrap();
+        
+        let request_items: Vec<ListItem> = state
+            .requests.iter()
+            .map(|request| ListItem::new(format!("{} - {}", state.nicknames.get(&request.0.to_string().clone()).expect(""), request.1)))
+            .collect();  
 
-    if event::poll(std::time::Duration::from_millis(50))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Tab => {
-                        state.tab = 0;
-                        state.input = String::new();
-                    }
-                    KeyCode::Char(c) => {
-                        state.input.push(c);
-                    }
-                    KeyCode::Backspace => {
-                        state.input.pop();
-                    }
-                    KeyCode::Down => {
+        request_items
+    }
 
-                        if unsafe { SELECTED_SECTION } == 0 {
-                            state.peer_list_state.select_next();
-                        } else {
-                            state.request_list_state.select_next();
-                        }
-                    }
-                    KeyCode::Up => {
-                        if unsafe { SELECTED_SECTION } == 0 {
-                            state.peer_list_state.select_previous();
-                        } else {
-                            state.request_list_state.select_previous();
-                        }
-                    }
-                    KeyCode::Left => {
-                        unsafe { SELECTED_SECTION = 0 };
-                        state.request_list_state.select(None);
-                        state.peer_list_state.select(Some(0));
-                    }
-                    KeyCode::Right => {
-                        unsafe { SELECTED_SECTION = 1 };
-                        state.peer_list_state.select(None);
-                        state.request_list_state.select(Some(0));
-                    }
-                    KeyCode::Enter => {
 
-                        // Request File Section
-                        if unsafe { SELECTED_SECTION } == 0 {
-                            if state.peer_list_state.selected() != None && unsafe { SHOW_REQUEST_POPUP } == false {
-                                unsafe { SHOW_REQUEST_POPUP = true };
-                            } else if unsafe { SHOW_REQUEST_POPUP } == true {
-                                log::info!("Gonna send the request");
-                                let peers = state.peers.lock().unwrap();
-                                let selected_user = peers.get(state.peer_list_state.selected().expect(""))
-                                    .expect("Peer not found in the list");
-                                client.send_request(state.input.clone(), *selected_user).await;
-                                unsafe { SHOW_REQUEST_POPUP = false };
-                                drop(peers);
-                                state.input.clear();
-                            }
-                        } else {
-                            // Incoming Request Section
-                            if state.request_list_state.selected() != None && unsafe { SHOW_RESPONSE_POPUP } == false {
-                                unsafe { SHOW_RESPONSE_POPUP = true };
-                            } else if unsafe { SHOW_RESPONSE_POPUP } == true {
-                                log::info!("Gonna send the response");
-                                let index = state.request_list_state.selected().expect("");
-                                let request = state.requests.remove(index);
-                                let channel = request.2; // Move the channel out
+    /// Handles events in the "Request a File" section.
+    /// If a user is selected and the request popup is not already showing, the request input popup will be displayed.
+    /// Otherwise if it is already showing, the request with the message typed into the input will be sent to the selected user.
+    async fn handle_requests(&mut self, client: &mut Client) {
 
-                                client.send_response("swapbytes.txt".to_string(), state.input.to_string(), channel).await;
-                                unsafe { SHOW_RESPONSE_POPUP = false };
-                                state.input.clear();
-                            }
-                        }
-                    }
-                    _ => {}
+        let state = STATE.lock().unwrap();
+
+        if let Some(selected_index) = self.peer_list_state.selected() {
+            if state.peers.len() > 0 {
+                if self.popup != Section::Request {
+                    self.popup = Section::Request;
+                } else if let Some(selected_user) = state.peers.get(selected_index) {
+                    client.send_request(self.input.clone(), *selected_user).await;
+                    self.reset_popup();
                 }
             }
         }
     }
-    Ok(false)
+
+
+    /// Handles events in the "Incoming Requests" section.
+    /// If a user is selected and the response popup is not already showing, the response input popup will be displayed.
+    /// Otherwise if it is already showing, the response with the file at the given path will be sent to the selected user.
+    async fn handle_response(&mut self, client: &mut Client) {
+
+        let mut state = STATE.lock().unwrap();
+
+        if let Some(selected_index) = self.request_list_state.selected() {
+            if state.requests.len() > 0 {
+                if self.popup != Section::Response {
+                    self.popup = Section::Response;
+                } else {
+                    let (_, _, channel) = state.requests.remove(selected_index);
+                    client.send_response("swapbytes.txt".to_string(), self.input.to_string(), channel).await;
+                    self.reset_popup();
+                }
+            }
+        }
+    }
+
+    /// Clears the currently shown Popup
+    fn reset_popup(&mut self) {
+        self.popup = Section::None;
+        self.input.clear();
+    }
+
 }

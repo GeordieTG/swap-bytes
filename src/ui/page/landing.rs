@@ -1,75 +1,84 @@
-use crate::state::STATE;
+use std::io::Stdout;
+use std::error::Error;
+
+use crate::{state::STATE, ui::components::{input_component, title_component}};
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Direction, Layout}, style::Color, widgets::{Block, Paragraph}
+    crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Direction, Layout}, prelude::{CrosstermBackend, Frame}, style::Stylize, text::Line, Terminal
 };
 
-use ratatui::prelude::{Frame, Style, Stylize};
-use tui_big_text::{BigText, PixelSize};
-
-pub fn render(frame: &mut Frame) {
-
-    let state = STATE.lock().unwrap();
-
-    // Page layout
-    let main_layout = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(20),
-            Constraint::Percentage(75),
-            Constraint::Percentage(20),
-        ],
-    )
-    .split(frame.area());
-
-    // Swapbytes Title
-    let title = BigText::builder()
-        .pixel_size(PixelSize::Quadrant)
-        .alignment(ratatui::layout::Alignment::Center)
-        .centered()
-        .lines(vec!["Welcome to".white().into(), "SwapBytes".blue().into()])
-        .build();
-
-    // User input
-    let input_str: &str = &state.input;
-    let input_display = Paragraph::new(input_str)
-    .block(
-        Block::bordered()
-            .title("Enter Nickname | <Enter> to confirm")
-            .style(Style::default().fg(Color::White))
-    )
-    .style(Style::default().fg(Color::White));
-
-    // Render
-    frame.render_widget(title, main_layout[1]);
-    frame.render_widget(input_display, main_layout[2]);
+#[derive(Default)]
+pub struct Landing {
+    input: String
 }
 
 
-pub async fn handle_events() -> Result<bool, std::io::Error> {
+impl Landing {
 
-    let mut state = STATE.lock().unwrap();
+    pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<bool, Box<dyn Error>> {
+        terminal.draw(|f| self.ui(f))?;
+        let should_quit = &self.handle_events().await?;
+        Ok(*should_quit)
+    }
 
-    if event::poll(std::time::Duration::from_millis(50))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(true),
-                    KeyCode::Backspace => {
-                        state.input.pop();
+    fn ui(&self, frame: &mut Frame) {
+        
+        // Ratatui page layout
+        let layout = Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Percentage(20),
+                Constraint::Percentage(75),
+                Constraint::Percentage(20),
+            ],
+        )
+        .split(frame.area());
+            
+        // Swapbytes title
+        let text: Vec<Line> = vec!["Welcome to".white().into(), "SwapBytes".blue().into()];
+        let title = title_component(text);
+
+        // Nickname entry
+        let input_display = input_component(&self.input, "Enter Nickname | <Enter> to confirm".to_string());
+    
+        // Render
+        frame.render_widget(title, layout[1]);
+        frame.render_widget(input_display, layout[2]);
+    
+    }
+    
+    
+    async fn handle_events(&mut self) -> Result<bool, std::io::Error> {
+    
+        let mut state = STATE.lock().unwrap();
+    
+        if event::poll(std::time::Duration::from_millis(50))? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == event::KeyEventKind::Press {
+                    match key.code {
+
+                        KeyCode::Char('q') => return Ok(true),
+
+                        KeyCode::Backspace => {
+                            self.input.pop();
+                        }
+
+                        KeyCode::Char(c) => {
+                            self.input.push(c)
+                        }
+
+                        KeyCode::Enter => {
+                            if !self.input.is_empty() {
+                                state.nickname = self.input.to_string();
+                                self.input = String::new();
+                                return Ok(true)
+                            }
+                        }
+
+                        _ => {}
                     }
-                    KeyCode::Char(c) => {
-                        state.input.push(c)
-                    }
-                    KeyCode::Enter => {
-                        state.nickname = state.input.to_string();
-                        state.input = String::new();
-                        state.tab = 0;
-                        return Ok(true)
-                    }
-                    _ => {}
                 }
             }
         }
+        Ok(false)
     }
-    Ok(false)
 }

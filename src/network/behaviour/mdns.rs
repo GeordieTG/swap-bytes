@@ -5,11 +5,13 @@ use libp2p::{kad, mdns, PeerId, Swarm};
 use crate::state::STATE;
 use crate::network::network::ChatBehaviour;
 
-
+// Handles all MDNS events that come through the network event loop.
 pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, PeerId>) {
 
     match event {
 
+        // Handles the connection with a new peer. We first add them to Gossipsub, Kademlia and our local list of peers,
+        // before fetching their nickname from the DHT.
         mdns::Event::Discovered(list) => {
             for (peer_id, addr) in list {
                 log::info!("Connected with person with id: {peer_id}");
@@ -18,11 +20,8 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
     
                 {
-                    let state = STATE.lock().unwrap();
-                    let mut peers: std::sync::MutexGuard<Vec<PeerId>> = state.peers.lock().unwrap();
-                    peers.push(peer_id);
-                    drop(peers);
-                    drop(state);
+                    let mut state = STATE.lock().unwrap();
+                    state.peers.push(peer_id);
                 }
                 
                 // Fetch the users nickname from the DHT
@@ -33,6 +32,7 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
             }
         }
 
+        // Handles the event that a known peer disconnects.
         mdns::Event::Expired(list) => {
             for (peer_id, _) in list {
                 swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id)

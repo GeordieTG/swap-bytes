@@ -1,6 +1,5 @@
-use swapbytes::network::network;
-use swapbytes::ui;
-
+use swapbytes::ui::page::landing::Landing;
+use swapbytes::{network::network, ui::router::Router};
 use std::io as std_out;
 use tokio::spawn;
 use std::error::Error;
@@ -38,7 +37,6 @@ fn setup_logger() -> Result<(), Box<dyn Error>> {
         .apply()?;
 
         info!("Application started");
-
     Ok(())
 }
 
@@ -54,27 +52,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     std_out::stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(std_out::stdout()))?;
-
+    let mut tab_manager = Router::default();
+    let mut landing = Landing::default();
 
     // Libp2p Setup
     let (mut client, event_loop) = network::new()?;    
 
     // Page to enter nickname
-    let mut should_quit = false;
-    while !should_quit {
-        terminal.draw(|f| ui::page::landing::render(f))?;
-        should_quit = ui::page::landing::handle_events().await?;
-    }
+    while !landing.run(&mut terminal).await? {}
 
     // Enter the Application
     spawn(event_loop.run(client.clone()));
     
     // Main UI Loop
-    let mut should_quit = false;
-    while !should_quit {
-        terminal.draw(|f| ui::router::ui(f))?;
-        should_quit = ui::router::handle_events( &mut client).await?;
-    }
+    while !tab_manager.run(&mut terminal, &mut client).await? {}
 
     // UI Clean Up
     disable_raw_mode()?;
