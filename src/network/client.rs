@@ -3,8 +3,7 @@ use libp2p::PeerId;
 use futures::channel::mpsc;
 use futures::SinkExt;
 
-use super::network::{Command, Response};
-
+use super::{command::Command, network::Response};
 
 /// Used to send commands from the UI to the Network.
 /// For example if a user types a message in the UI to send to the global chat, we must instruct the libp2p
@@ -13,7 +12,6 @@ use super::network::{Command, Response};
 pub struct Client {
     pub sender: mpsc::Sender<Command>,
 }
-
 
 impl Client {
     

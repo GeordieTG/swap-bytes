@@ -26,6 +26,8 @@ impl Tab {
 }
 
 
+// Re-useable component to display a list of messages. The title will be placed in the border 
+// of the box. Typically the room name or the users nickname.
 pub fn message_component(messages: &str, title: String) -> Paragraph {
     
     let messages = Paragraph::new(messages)
@@ -38,6 +40,9 @@ pub fn message_component(messages: &str, title: String) -> Paragraph {
     messages
 }
 
+
+// Re-useable component to display and input for the user. The title will be placed in the border 
+// of the box and will act as instructions for the input.
 pub fn input_component(input_str: &str, title: String) -> Paragraph{
 
     let input = Paragraph::new(input_str)
@@ -52,6 +57,8 @@ pub fn input_component(input_str: &str, title: String) -> Paragraph{
 }
 
 
+// Re-useable list component. The title will be placed in the border of the box and will act as 
+// instructions for navigating and selecting items from the list.
 pub fn list_component(items: Vec<ListItem>, title: String) -> List {
 
     let list = List::new(items)
@@ -62,6 +69,7 @@ pub fn list_component(items: Vec<ListItem>, title: String) -> List {
 }
 
 
+// Re-useable large text component from the Tui-Big-Text crate.
 pub fn title_component(text: Vec<Line>) -> BigText {
 
     let title = BigText::builder()

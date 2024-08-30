@@ -149,12 +149,15 @@ impl Router {
     }
 
 
+    // Fetch information before loading a page. These actions need to be performed before page load.
     async fn fetch_application_data(&mut self, client: &mut Client) {
 
+        // Fetches the most recent list of rooms available on the network
         if self.tab == Tab::RoomMenu {
             client.fetch_rooms().await;
         }
 
+        // Checks if we need to rate a user and will display the rating page instead.
         {
             let state = STATE.lock().unwrap();
             if state.current_rating.is_some() {
