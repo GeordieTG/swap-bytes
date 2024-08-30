@@ -1,6 +1,5 @@
 use crate::network::client::Client;
 use crate::state::STATE;
-use crate::ui::page::rating;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
@@ -14,6 +13,7 @@ use strum::IntoEnumIterator;
 
 use super::page::direct::Direct;
 use super::page::chat::Chat;
+use super::page::rating::Rating;
 use super::page::rooms_menu::RoomMenu;
 use super::components::Tab;
 
@@ -25,6 +25,7 @@ pub struct Router {
     room_menu: RoomMenu,
     global: Chat,
     direct: Direct,
+    rating: Rating
 }
 
 
@@ -49,7 +50,7 @@ impl Router {
             Tab::Chat => self.global.render(frame, layout),
             Tab::RoomMenu => self.room_menu.render(frame, layout),
             Tab::Direct => self.direct.render(frame, layout),
-            Tab::Rating => rating::render(frame, layout),
+            Tab::Rating => self.rating.render(frame, layout),
         }
     }
 
@@ -58,7 +59,6 @@ impl Router {
     async fn handle_events(&mut self, client: &mut Client) -> Result<bool, std::io::Error> {
 
         let tab = self.tab.clone();
-        let switch_tab_callback = |new: Tab| self.tab = new;
 
         if tab == Tab::RoomMenu {
             client.fetch_rooms().await;
@@ -69,6 +69,15 @@ impl Router {
             let room = state.current_room.clone();
             state.notifications.insert(room, false);
         }
+
+        {
+            let state = STATE.lock().unwrap();
+            if state.current_rating.is_some() {
+                self.tab = Tab::Rating;
+            }
+        }
+
+        let switch_tab_callback = |new: Tab| self.tab = new;
 
         if event::poll(std::time::Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
@@ -88,7 +97,7 @@ impl Router {
                             Tab::Chat => self.global.handle_events(client, key).await,
                             Tab::RoomMenu => self.room_menu.handle_events(client, key, switch_tab_callback).await,
                             Tab::Direct => self.direct.handle_events(client, key).await,
-                            Tab::Rating => rating::handle_events(client, key).await,
+                            Tab::Rating => self.rating.handle_events(client, key, switch_tab_callback).await,
                         },
                     };
                 }
