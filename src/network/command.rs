@@ -5,6 +5,8 @@ use libp2p_request_response::ResponseChannel;
 
 use super::network::{ChatBehaviour, Request, Response};
 
+
+/// These are commands that can be called from the UI to instruct the libp2p network to perform an action.
 #[derive(Debug)]
 pub enum Command {
     SendMessage {

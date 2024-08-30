@@ -63,28 +63,28 @@ impl EventLoop {
                 self.setup(address);
             },
 
-            // Handle MDNS events
+            // Handle MDNS (Peer Connection) events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Mdns(event)) => {
                 mdns_events::handle_event(event, &mut self.swarm, &mut self.nickname_fetch_queue).await;
             }
 
-            // Handle Gossipsub events
+            // Handle Gossipsub (Message) events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Gossipsub(event)) => {
                 gossibsub_events::handle_event(event, &mut self.rating_fetch_queue, &mut self.swarm).await;
             }
 
-            // Handle Kademlia events
+            // Handle Kademlia (Stored DHT) events
             SwarmEvent::Behaviour(ChatBehaviourEvent::Kademlia(event)) => {
                 kademlia_events::handle_event(event, &mut self.nickname_fetch_queue, &mut self.rating_fetch_queue, &mut self.rating_update_queue, &mut self.swarm).await;
             }
     
-            // Handle Request-Response events
+            // Handle Request-Response (File-Sharing) events
             SwarmEvent::Behaviour(ChatBehaviourEvent::RequestResponse(event)) => {
                 reqyest_response_events::handle_event(event).await;
             }
 
             other => {
-                log::info!("Unhandled {:?}", other);
+                log::info!("{:?}", other);
             }
         }
     }

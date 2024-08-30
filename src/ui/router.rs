@@ -34,7 +34,6 @@ impl Router {
     /// Function called by the main loop to continuously render the UI and listen for user input.
     /// Handle events will return a bool, and if true, indicates the shut down of the application.
     pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>, client: &mut Client) -> Result<bool, Box<dyn Error>> {
-
         terminal.draw(|f| self.ui(f))?;
         let should_quit = &self.handle_events(client).await?;
         Ok(*should_quit)
@@ -60,9 +59,11 @@ impl Router {
 
         self.fetch_application_data(client).await;
 
+        // A callback that can be called from a child component to switch the current tab
         let tab = self.tab.clone();
         let switch_tab_callback = |new: Tab| self.tab = new;
 
+        // Listens for user key stroke events
         if event::poll(std::time::Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == event::KeyEventKind::Press {
@@ -119,6 +120,7 @@ impl Router {
         let index = Tab::iter().position(|e| e == self.tab).unwrap();
         let (room_title, direct_title) = self.calculate_notifications();
 
+        // Render
         frame.render_widget(Tabs::new(vec!["Chat", &room_title, &direct_title])
         .style(Style::default().white())
         .highlight_style(Style::default().yellow())
@@ -149,7 +151,7 @@ impl Router {
     }
 
 
-    // Fetch information before loading a page. These actions need to be performed before page load.
+    // Fetch information before rendereing a page. These actions need to be performed before page load.
     async fn fetch_application_data(&mut self, client: &mut Client) {
 
         // Fetches the most recent list of rooms available on the network

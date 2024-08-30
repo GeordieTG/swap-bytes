@@ -34,7 +34,7 @@ pub struct Response {
 }
 
 
-/// Sets up a new libp2p swarm and returns an EventLoop to be used in the main program
+/// Sets up a new libp2p swarm and returns an EventLoop and Client to be used in the main program
 pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
