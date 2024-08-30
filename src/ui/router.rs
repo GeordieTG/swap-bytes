@@ -58,25 +58,9 @@ impl Router {
     /// Handles key presses to modify the UI, eg. typing a message, tab changes, arrows to select various options
     async fn handle_events(&mut self, client: &mut Client) -> Result<bool, std::io::Error> {
 
+        self.fetch_application_data(client).await;
+
         let tab = self.tab.clone();
-
-        if tab == Tab::RoomMenu {
-            client.fetch_rooms().await;
-        }
-
-        if tab == Tab::Chat {
-            let mut state = STATE.lock().unwrap();
-            let room = state.current_room.clone();
-            state.notifications.insert(room, false);
-        }
-
-        {
-            let state = STATE.lock().unwrap();
-            if state.current_rating.is_some() {
-                self.tab = Tab::Rating;
-            }
-        }
-
         let switch_tab_callback = |new: Tab| self.tab = new;
 
         if event::poll(std::time::Duration::from_millis(50))? {
@@ -164,4 +148,18 @@ impl Router {
         (room_title.to_string(), direct_title.to_string())
     }
 
+
+    async fn fetch_application_data(&mut self, client: &mut Client) {
+
+        if self.tab == Tab::RoomMenu {
+            client.fetch_rooms().await;
+        }
+
+        {
+            let state = STATE.lock().unwrap();
+            if state.current_rating.is_some() {
+                self.tab = Tab::Rating;
+            }
+        }
+    }
 }

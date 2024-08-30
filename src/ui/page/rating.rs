@@ -31,7 +31,6 @@ impl Rating{
     }
     
     
-    
     pub async fn handle_events<T: FnMut(Tab)>(&mut self, client: &mut Client, key: KeyEvent, mut switch_tab_callback: T) {
     
         let mut state = STATE.lock().unwrap();

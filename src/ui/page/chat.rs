@@ -90,6 +90,8 @@ impl Chat {
         let room_key = state.current_room.clone();
         let room = state.current_room.clone();
 
+        state.notifications.insert(room.clone(), false);
+
         // TODO: Fix when I tidy up CreateRoom command. Can probably be done there.
         if !state.messages.contains_key(&room_key) {
             state.messages.entry(room.clone()).or_insert(vec![format!("✨ Welcome to the {} chat!", &room)]);
