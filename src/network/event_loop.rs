@@ -12,7 +12,6 @@ use super::{client::Client, command::*, network::{ChatBehaviour, ChatBehaviourEv
 
 
 /// Defines the libp2p event loop. 
-/// Consists of the Swarm to perform network tasks, as well as the global state of messages and connected peers to update when need be.
 pub struct EventLoop {
     swarm: Swarm<ChatBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
@@ -24,7 +23,7 @@ pub struct EventLoop {
 
 /// Encapsulates the libp2p event listening and will perform corresponding functionality when certain events occur.
 /// For example, it will listen for incoming messages, and then append the received message to the global store to be shown in the UI.
-/// This is intended to run in the background of the application asyncronously.
+/// This is intended to be run in the background of the application asyncronously.
 impl EventLoop {
     pub fn new(
         swarm: Swarm<ChatBehaviour>,

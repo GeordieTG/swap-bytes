@@ -9,7 +9,7 @@ use libp2p::kad::Mode;
 
 use super::{client::Client, event_loop::EventLoop};
 
-/// Defines the behaviour of our libp2p application
+/// Main network entry point. Defines the behaviour of our libp2p application
 #[derive(NetworkBehaviour)]
 pub struct ChatBehaviour {
     pub mdns: mdns::tokio::Behaviour,
@@ -19,14 +19,15 @@ pub struct ChatBehaviour {
 }
 
 
-/// Defines the properties sent when sharing a file with another user
+/// Defines the properties sent when requesting a file from another user.
+/// Simply just a message (eg. Hey Ben, can I have last weeks COSC473 Notes)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request {
     pub message: String,
 }
 
 
-/// Defines the properties sent when acknowledging the reception of a shared file from another user
+/// Defines the properties sent when sharing a file with another user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     pub filename: String,
