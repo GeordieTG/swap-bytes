@@ -4,8 +4,6 @@ Designed for students to join chat rooms and organise the trading of study notes
 
 ## How to run
 
-- Start Rendezvous Server using ```cargo run --bin rendezvous```
-
 - Start a Peer using ```cargo run --bin peer```
 
 ## How to Use
@@ -19,7 +17,6 @@ On start you will be prompted to enter a nickname. This will be your display nam
 The global chat is where all connected users can communicate with each other. Simply type your message and press enter to send. 
 
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/9ce69e1c-2897-4c0f-9881-f73409ba7e3c">
-
 
 ### Rooms 🏘️
 Rooms are dedicated spaces for peers to communicate about specific topics. On this tab users will have a selection of existing rooms to join, or they have the option of creating their own room to be shared across the network.
@@ -48,4 +45,13 @@ Peer ratings are a way of acknowledging users who act morally or immorally on th
 The users exact rating is visisble next to their name in the "Request a File" list on the "Direct Messages" tab.
 
 <img width="994" alt="image" src="https://github.com/user-attachments/assets/cb6679e5-a505-4f7c-a61e-71366ab35ced">
+
+### Notifications 🔔
+When the user receives a message / file request from any user / room, they need to be notified! 
+
+- When the user receives a message:
+  The "Rooms" tab will display with a "🔔" and the specific room / direct message will display with "- New Messages" next to it.
+
+- When the user receives a file request:
+  The "File Sharing" tab will display with a "🔔"
 
