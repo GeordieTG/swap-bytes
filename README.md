@@ -10,7 +10,7 @@ Designed for students to join chat rooms and organise the trading of study notes
 
 - Tab -> Cycle Through Tabs
 - Up and Down Arrows -> Navigate through lists
-- Left and Right Arrows -> Jump between left and right sections (Rooms / Direct Message Tabs)
+- Left and Right Arrows -> Jump between left and right sections (Rooms / File Sharing Tabs)
 - Characters / Numbers -> Input
 - Backspace -> Delete input characters
 - Enter -> Used to 1) select items from list and 2) confirm inputs
@@ -40,12 +40,12 @@ When any of these options are selected, the user is navigated back to the "Chat"
 <img width="992" alt="image" src="https://github.com/user-attachments/assets/67b235c5-c811-4cd5-b3cd-fca001b00d12">
 
 ### Requesting a File ✨
-After agreeing on a trade within a chat room, the user is able to request a file from a peer on the "Direct Messages" tab. Simply find the user in the "Request File" list and press enter. You will be prompted to add a request message. On enter this will send a request to the user.
+After agreeing on a trade within a chat room, the user is able to request a file from a peer on the "File Sharing" tab. Simply find the user in the "Request File" list and press enter. You will be prompted to add a request message. On enter this will send a request to the user.
 
 <img width="996" alt="image" src="https://github.com/user-attachments/assets/8b38dc7b-a847-4270-8eff-51c8347a278a">
 
 ### Sending a File 🚀
-When receiving a file request, it will appear under the "Incoming Request" list in the "Direct Messages" tab. It will appear as ```<user> - <request message>```. To address the request, navigate to it using the arrow keys and press enter. You will be prompted to enter a filepath of the file you want to send.
+When receiving a file request, it will appear under the "Incoming Request" list in the "File Sharing" tab. It will appear as ```<user> - <request message>```. To address the request, navigate to it using the arrow keys and press enter. You will be prompted to enter a filepath of the file you want to send.
 
 <img width="993" alt="image" src="https://github.com/user-attachments/assets/43f4778f-0a57-4697-a75f-1356f428025c">
 
