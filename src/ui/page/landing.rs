@@ -6,6 +6,8 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode}, layout::{Constraint, Direction, Layout}, prelude::{CrosstermBackend, Frame}, style::Stylize, text::Line, Terminal
 };
 
+
+/// A landing page where users will enter a nickname before entering the main application.
 #[derive(Default)]
 pub struct Landing {
     input: String
@@ -20,6 +22,8 @@ impl Landing {
         Ok(*should_quit)
     }
 
+    /// Simply renders the page consisting of the Swapbytes title and an input field at the bottom of the page to allow the
+    /// user to enter their nickname.
     fn ui(&self, frame: &mut Frame) {
         
         // Ratatui page layout
@@ -47,6 +51,7 @@ impl Landing {
     }
     
     
+    /// Event handler for the Landing page. Listens for user keystrokes.
     async fn handle_events(&mut self) -> Result<bool, std::io::Error> {
     
         let mut state = STATE.lock().unwrap();
@@ -56,16 +61,20 @@ impl Landing {
                 if key.kind == event::KeyEventKind::Press {
                     match key.code {
 
-                        KeyCode::Char('q') => return Ok(true),
+                        // Handle application close
+                        KeyCode::Esc => return Ok(true),
 
+                        // Allows for deletion of characters in the input field
                         KeyCode::Backspace => {
                             self.input.pop();
                         }
 
+                        // User input into the message box
                         KeyCode::Char(c) => {
                             self.input.push(c)
                         }
 
+                        // Submits the nickname and will proceed to enter the main application
                         KeyCode::Enter => {
                             if !self.input.is_empty() {
                                 state.nickname = self.input.to_string();

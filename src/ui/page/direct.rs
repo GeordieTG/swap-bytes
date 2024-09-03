@@ -6,6 +6,7 @@ use ratatui::{
     widgets::*,
 };
 
+/// Represents the currently selected section.
 #[derive(Default, PartialEq)]
 enum Section {
     #[default]
@@ -14,6 +15,8 @@ enum Section {
     Response
 }
 
+
+/// A page for users to chat with all other peers on the network.
 #[derive(Default)]
 pub struct Direct {
     input: String,
@@ -69,14 +72,17 @@ impl Direct {
         
         match key.code {
 
+            // User input into the message box
             KeyCode::Char(c) => {
                 self.input.push(c);
             }
 
+            // Allows for deletion of characters in the message box
             KeyCode::Backspace => {
                 self.input.pop();
             }
 
+            // Moves down the currently selected list
             KeyCode::Down => {
                 if self.popup == Section::None {
                     match self.selected_section {
@@ -87,6 +93,7 @@ impl Direct {
                 }
             }
 
+            // Moves up the currently selected list
             KeyCode::Up => {
                 if self.popup == Section::None {
                     match self.selected_section {
@@ -97,6 +104,7 @@ impl Direct {
                 }
             }
 
+            // Selects the "Send Request" section
             KeyCode::Left => {
                 if self.popup == Section::None {
                     self.selected_section = Section::Request;
@@ -105,6 +113,7 @@ impl Direct {
                 }
             }
 
+            // Selects the "Incoming Requests" section
             KeyCode::Right => {
                 if self.popup == Section::None {
                     self.selected_section = Section::Response;
@@ -113,6 +122,7 @@ impl Direct {
                 }
             }
 
+            // Handles confirmation of the current popup
             KeyCode::Enter => {
                 match self.selected_section {
                     Section::Request => self.handle_requests(client).await,

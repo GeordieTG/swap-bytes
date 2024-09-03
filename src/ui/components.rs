@@ -1,4 +1,4 @@
-use ratatui::{style::{Color, Style}, text::Line, widgets::{Block, List, ListItem, Paragraph}};
+use ratatui::{layout::Alignment, style::{Color, Style}, text::Line, widgets::{Block, List, ListItem, Paragraph}};
 use tui_big_text::{BigText, PixelSize};
 use strum_macros::EnumIter;
 
@@ -81,3 +81,19 @@ pub fn title_component(text: Vec<Line>) -> BigText {
 
     title
 }
+
+
+// Re-useable notification component.
+pub fn notification_component(text: &String, title: String) -> Paragraph {
+
+    let notification = Paragraph::new(text.clone())
+            .block(
+                Block::bordered()
+                    .style(Style::default().fg(Color::Blue)).title(title)
+            )
+            .style(Style::default().fg(Color::White))
+            .alignment(Alignment::Center);
+
+    notification
+}
+

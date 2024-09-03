@@ -31,23 +31,10 @@ impl RoomMenu {
 
     /// Simply renders the page consisting of a list of availabe rooms, and an input field at the bottom of the page to allow the
     /// user to create new rooms on the network.
-    pub fn render(&self, frame: &mut Frame, layout: Rc<[Rect]>) {
+    pub fn render(&mut self, frame: &mut Frame, layout: Rc<[Rect]>) {
 
         // Room list display
-        let state = STATE.lock().unwrap();
-        let room_items: Vec<ListItem> = state.rooms.iter().map(|room| {
-        
-            let notification = state.notifications.get(room);
-
-            if notification == Some(&true) {
-                ListItem::new(format!("{} - New Messages", room.as_str()))
-            } else {
-                ListItem::new(format!("{}", room.as_str()))
-            }
-        
-        }).collect();
-
-
+        let room_items = self.format_rooms();
         let rooms_display = list_component(room_items, "📚 Select Room to Enter".to_string());
      
         // Create room option
@@ -107,4 +94,25 @@ impl RoomMenu {
             _ => {}
         }
     }
+
+    /// Fetches available rooms from the global store and formats them in a way to be displayed in the Ratatui UI.
+    /// Will display with "- New Messages" if the room has unread messages.
+    fn format_rooms(&self) -> Vec<ListItem> {
+
+        let state = STATE.lock().unwrap();
+
+        let room_items: Vec<ListItem> = state.rooms.iter().map(|room| {
+        
+            let notification = state.notifications.get(room);
+
+            if notification == Some(&true) {
+                ListItem::new(format!("{} - New Messages", room.as_str()))
+            } else {
+                ListItem::new(format!("{}", room.as_str()))
+            }
+        
+        }).collect();
+
+        room_items
+    } 
 }

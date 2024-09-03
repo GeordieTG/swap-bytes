@@ -7,7 +7,7 @@ use crate::network::network::Response;
 
 
 /// The state of our application. Includes items such as the users nickname, a list of all connected pairs,
-/// a store of all messages for each room and so on. Essentially information that would be stored and fetched from a database.
+/// a store of all messages for each room and so on.
 #[derive(Default)]
 pub struct GlobalState {
     pub nickname: String,
@@ -38,6 +38,8 @@ impl GlobalState {
     }
 }
 
+
+// Creates a static instance of the GlobalState to be accessed throughout the application.
 lazy_static! {
     pub static ref STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));
 }

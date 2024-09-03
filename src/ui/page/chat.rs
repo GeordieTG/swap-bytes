@@ -56,12 +56,17 @@ impl Chat {
                 let message = self.input.to_string();
 
                 if !message.is_empty() {
+
                     let mut state = STATE.lock().unwrap();
                     let room_key = state.current_room.clone();
     
+                    // Add to local storage
                     let msgs = state.messages.entry(room_key.clone()).or_default();
                     msgs.push(format!("{}: {}", "You".to_string(), message.clone()));
+
+                    // Send message to the network
                     client.send_message(message, room_key).await;
+
                     self.input.clear();
                 }
             }
