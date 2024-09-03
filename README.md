@@ -2,6 +2,8 @@
 A peer to peer file sharing application using libp2p for COSC473 @ UC. 
 Designed for students to join chat rooms and organise the trading of study notes for various classes.
 
+**Disclaimer**: Developed and tested on an Intel Macbook Pro
+
 ## How to run
 
 - Start a Peer using ```cargo run --bin peer```
