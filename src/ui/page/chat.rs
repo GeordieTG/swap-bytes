@@ -87,6 +87,8 @@ impl Chat {
         concatenated_messages
     }
 
+
+    /// Fetch relevant information about the room.
     fn room_setup(&self) -> (String, String) {
         
         let mut state = STATE.lock().unwrap();
@@ -97,7 +99,6 @@ impl Chat {
 
         state.notifications.insert(room.clone(), false);
 
-        // TODO: Fix when I tidy up CreateRoom command. Can probably be done there.
         if !state.messages.contains_key(&room_key) {
             state.messages.entry(room.clone()).or_insert(vec![format!("✨ Welcome to the {} chat!", &room)]);
         }

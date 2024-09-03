@@ -6,12 +6,22 @@ use ratatui::{
     widgets::*,
 };
 
-use crate::{network::client::Client, state::STATE, ui::components::{input_component, list_component, Tab}};
+use crate::{network::client::Client, state::STATE, ui::components::{input_component, list_component, Tab}, util};
+
+/// Represents the currently selected section.
+#[derive(Default, PartialEq)]
+enum Section {
+    #[default]
+    Room,
+    User
+}
 
 /// A page for users to view all available rooms on the network and select one to join.
 pub struct RoomMenu {
     input: String,
     room_list_state: ListState,
+    user_list_state: ListState,
+    selected_section: Section
 }
 
 
@@ -21,6 +31,9 @@ impl Default for RoomMenu {
         let mut menu = Self {
             input: String::new(),
             room_list_state: ListState::default(),
+            user_list_state: ListState::default(),
+            selected_section: Section::Room
+
         };
         menu.room_list_state.select_first();
         menu
@@ -33,15 +46,30 @@ impl RoomMenu {
     /// user to create new rooms on the network.
     pub fn render(&mut self, frame: &mut Frame, layout: Rc<[Rect]>) {
 
+        // Allows to split the screen to have both Room and User lists.
+        let horizontal_layout = Layout::new(
+            Direction::Horizontal,
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ],
+        )
+        .split(layout[1]);
+
         // Room list display
         let room_items = self.format_rooms();
         let rooms_display = list_component(room_items, "📚 Select Room to Enter".to_string());
      
+        // User list display
+        let user_items = self.format_peers();
+        let users_display = list_component(user_items, "🎸 Select User to Message".to_string());
+        
         // Create room option
-        let input_display = input_component(self.input.as_str(), "Type new room name | Create new room <Right Arrow>".to_string());
+        let input_display = input_component(self.input.as_str(), "Type new room name | Create new room <Shift + Tab>".to_string());
     
         // Render
-        frame.render_stateful_widget(rooms_display, layout[1], &mut self.room_list_state.clone());
+        frame.render_stateful_widget(rooms_display, horizontal_layout[0], &mut self.room_list_state.clone());
+        frame.render_stateful_widget(users_display, horizontal_layout[1], &mut self.user_list_state.clone());
         frame.render_widget(input_display, layout[2]);
     }
     
@@ -52,16 +80,19 @@ impl RoomMenu {
        
         match key.code {
             
-            // Navigate up the room list
+            // Navigate up the selected list
             KeyCode::Up => {
-                self.room_list_state.select_previous();
+                match self.selected_section {
+                    Section::Room => self.room_list_state.select_previous(),
+                    Section::User => self.user_list_state.select_previous()
+                }
             }
             
-            // Navigate down the room list
+            // Navigate down the selected list
             KeyCode::Down => {
-                let state = STATE.lock().unwrap();
-                if self.room_list_state.selected().unwrap() != state.rooms.len() - 1 {
-                    self.room_list_state.select_next();
+                match self.selected_section {
+                    Section::Room => self.room_list_state.select_next(),
+                    Section::User => self.user_list_state.select_next()
                 }
             }
 
@@ -75,15 +106,24 @@ impl RoomMenu {
                 self.input.push(c)
             }
 
-            // Select room
+            // Select room / direct message
             KeyCode::Enter => {
                 let mut state = STATE.lock().unwrap();
-                state.current_room = state.rooms.get(self.room_list_state.selected().expect("")).expect("").to_string();
+
+                state.current_room = match self.selected_section {
+                    Section::Room => state.rooms.get(self.room_list_state.selected().expect("")).expect("").to_string(),
+                    Section::User => {
+                        let own_peer_id = state.peer_id.clone();
+                        let peer_id = state.peers.get(self.user_list_state.selected().expect("")).expect("").to_string();
+                        util::format_dm_key(peer_id, own_peer_id)
+                    }
+                };
+
                 switch_tab_callback(Tab::Chat);
             }
 
             // Create room based on current input
-            KeyCode::Right => {
+            KeyCode::BackTab => {
                 let state = STATE.lock().unwrap();
                 if self.input != String::new() && !state.rooms.contains(&self.input) {
                     client.create_room(self.input.to_string()).await;
@@ -91,9 +131,24 @@ impl RoomMenu {
                 }
             }
 
+            // Selects the "Rooms" section
+            KeyCode::Left => {
+                self.selected_section = Section::Room;
+                self.user_list_state.select(None);
+                self.room_list_state.select_first();
+            }
+
+            // Selects the "Users" section
+            KeyCode::Right => {
+                self.selected_section = Section::User;
+                self.room_list_state.select(None);
+                self.user_list_state.select_first(); 
+            }
+
             _ => {}
         }
     }
+
 
     /// Fetches available rooms from the global store and formats them in a way to be displayed in the Ratatui UI.
     /// Will display with "- New Messages" if the room has unread messages.
@@ -115,4 +170,33 @@ impl RoomMenu {
 
         room_items
     } 
+
+
+    /// Fetches connected peers from the global store and formats them in a way to be displayed in the Ratatui UI.
+    /// Will display with "- New Messages" if the DM has unread messages.
+    fn format_peers(&self) -> Vec<ListItem> {
+
+        let state = STATE.lock().unwrap();
+
+        let peers: Vec<ListItem> = state
+        .peers
+        .iter()
+        .filter_map(|peer_id| {
+            state.nicknames.get(&peer_id.to_string()).map(|nickname| {
+
+                let own_peer_id = state.peer_id.clone();
+                let dm_key = util::format_dm_key(peer_id.to_string(), own_peer_id);
+                let notification = state.notifications.get(&dm_key);
+
+                if notification == Some(&true) {
+                    ListItem::new(format!("{} - New Messages", nickname.as_str()))
+                } else {
+                    ListItem::new(format!("{}", nickname.as_str()))
+                }
+            })
+        })
+        .collect();
+
+        peers
+    }
 }

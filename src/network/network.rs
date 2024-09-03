@@ -7,6 +7,8 @@ use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
 use libp2p::kad::Mode;
 
+use crate::state::STATE;
+
 use super::{client::Client, event_loop::EventLoop};
 
 /// Main network entry point. Defines the behaviour of our libp2p application
@@ -78,6 +80,9 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
         swarm.listen_on(external_address.clone())?;
 
         let (command_sender, command_receiver) = mpsc::channel(0);
+
+        let mut state = STATE.lock().unwrap();
+        state.peer_id = swarm.local_peer_id().to_string();
 
         Ok((
             Client {

@@ -12,6 +12,7 @@ use crate::network::network::Response;
 pub struct GlobalState {
     pub nickname: String,
     pub nicknames: HashMap<String, String>,
+    pub peer_id: String,
     pub peers: Vec<PeerId>,
     pub rooms: Vec<String>,
     pub messages: HashMap<String, Vec<String>>,

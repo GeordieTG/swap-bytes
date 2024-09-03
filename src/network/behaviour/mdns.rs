@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use libp2p::kad::QueryId;
-use libp2p::{kad, mdns, PeerId, Swarm};
+use libp2p::{gossipsub, kad, mdns, PeerId, Swarm};
 use crate::state::STATE;
 use crate::network::network::ChatBehaviour;
 
@@ -24,6 +24,23 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 // Update local peers
                 let mut state = STATE.lock().unwrap();
                 state.peers.push(peer_id);
+
+                // Add a DM for this user to our local storage
+                let peer_id_string = peer_id.to_string();
+                let own_peer_id = state.peer_id.clone();
+
+                // The key for the chat is biggerPeerId_smallerPeerId to ensure consistancy in keys
+                let (bigger_key, smaller_key) = if peer_id_string > own_peer_id {
+                    (peer_id_string, own_peer_id)
+                } else {
+                    (own_peer_id, peer_id_string)
+                };
+
+                let dm_key = format!("{}_{}", bigger_key, smaller_key);
+                state.messages.insert(dm_key.clone(), vec![]);
+
+                let topic = gossipsub::IdentTopic::new(dm_key.clone());
+                swarm.behaviour_mut().gossipsub.subscribe(&topic).unwrap();
                 
                 // Fetch the users nickname from the DHT
                 let key_string = "nickname_".to_string() + &peer_id.to_string();

@@ -145,7 +145,7 @@ impl Router {
         .any(|(room, &value)| (room != &state.current_room || self.tab != Tab::Chat) && value);
 
         let room_title = if room_notifications {"Rooms 🔔"} else {"Rooms"};
-        let direct_title = if direct_notifications {"Direct Messages 🔔"} else {"Direct Messages"};
+        let direct_title = if direct_notifications {"File Sharing 🔔"} else {"File Sharing"};
 
         (room_title.to_string(), direct_title.to_string())
     }
@@ -160,11 +160,9 @@ impl Router {
         }
 
         // Checks if we need to rate a user and will display the rating page instead.
-        {
-            let state = STATE.lock().unwrap();
-            if state.current_rating.is_some() {
-                self.tab = Tab::Rating;
-            }
+        let state = STATE.lock().unwrap();
+        if state.current_rating.is_some() {
+            self.tab = Tab::Rating;
         }
     }
 }
