@@ -13,16 +13,17 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
         // Handles the connection with a new peer. We first add them to Gossipsub, Kademlia and our local list of peers,
         // before fetching their nickname from the DHT.
         mdns::Event::Discovered(list) => {
+
             for (peer_id, addr) in list {
                 log::info!("Connected with person with id: {peer_id}");
     
+                // Add the peer to our network
                 swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                 swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
     
-                {
-                    let mut state = STATE.lock().unwrap();
-                    state.peers.push(peer_id);
-                }
+                // Update local peers
+                let mut state = STATE.lock().unwrap();
+                state.peers.push(peer_id);
                 
                 // Fetch the users nickname from the DHT
                 let key_string = "nickname_".to_string() + &peer_id.to_string();
@@ -35,7 +36,14 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
         // Handles the event that a known peer disconnects.
         mdns::Event::Expired(list) => {
             for (peer_id, _) in list {
-                swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id)
+
+                // Remove from network
+                swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                swarm.behaviour_mut().kademlia.remove_peer(&peer_id);
+                
+                // Remove from local list
+                let mut state = STATE.lock().unwrap();
+                state.peers.retain(|&x| x != peer_id);
             }
         }
     }

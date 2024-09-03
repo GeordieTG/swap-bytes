@@ -27,7 +27,7 @@ pub async fn handle_event(event: libp2p::request_response::Event<Request, Respon
                     log::info!("Received response: {:?}", response);
 
                     if let Err(e) = std::fs::write(&response.filename, response.data) {
-                        log::error!("Failed to write file {}: {}", &response.filename, e);
+                        log::info!("Failed to write file {}: {}", &response.filename, e);
                     } else {
                         log::info!("File {} received and saved successfully", &response.filename);
                     }

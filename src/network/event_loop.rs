@@ -91,7 +91,7 @@ impl EventLoop {
 
     /// These are commands that we can call from the UI to perform libp2p actions.
     /// Eg. when a user sends a message on the UI, we can communicate to our network running in the background through the mspc channel to instruct
-    /// it to send the users message!
+    /// it to send the users message.
     async fn handle_command(&mut self, command: Command) {
 
         match command {
