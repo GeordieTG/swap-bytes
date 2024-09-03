@@ -55,11 +55,11 @@ impl Direct {
         // Display the input for request messages and response file paths when required
         match self.popup  {
             Section::Request => {
-                let popup = input_component(&self.input, "Request a file".to_string());
+                let popup = input_component(&self.input, "Request a file | <Enter> to send".to_string());
                 frame.render_widget(popup, layout[2]);
             }
             Section::Response => {
-                let popup = input_component(&self.input, "Enter a File Path to Send".to_string());
+                let popup = input_component(&self.input, "Enter a File Path | <Enter> to send".to_string());
                 frame.render_widget(popup, layout[2]);
             }
             Section::None => {}

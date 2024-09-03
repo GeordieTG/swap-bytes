@@ -106,27 +106,33 @@ impl Router {
         )
         .split(frame.area());
 
+        // Curenntly selected tab so that we can highlight it in the Navbar
+        let index = Tab::iter().position(|e| e == self.tab).unwrap();
+        let (room_title, direct_title) = self.calculate_notifications();
+        
         // Used to center the Navbar
+        let width = frame.area().width.clone();
+        let title_length = (room_title.len() + direct_title.len() + 10) as u16;
+        let padding = if width > title_length { (width - title_length) / 2 } else { 0 };
+
         let centered_layout = Layout::new(
             Direction::Horizontal,
             [
-                Constraint::Percentage(35), 
-                Constraint::Percentage(65),
+                Constraint::Length(padding), 
+                Constraint::Min(0),
             ],
         )
         .split(main_layout[0]);
 
-        // Curenntly selected tab so that we can highlight it in the Navbar
-        let index = Tab::iter().position(|e| e == self.tab).unwrap();
-        let (room_title, direct_title) = self.calculate_notifications();
-
         // Render
-        frame.render_widget(Tabs::new(vec!["Chat", &room_title, &direct_title])
-        .style(Style::default().white())
-        .highlight_style(Style::default().yellow())
-        .select(index)
-        , centered_layout[1]);
-
+        if self.tab != Tab::Rating {
+            frame.render_widget(Tabs::new(vec!["Chat", &room_title, &direct_title])
+            .style(Style::default().white())
+            .highlight_style(Style::default().yellow())
+            .select(index)
+            , centered_layout[1]);
+        }
+        
         main_layout
     }
 
