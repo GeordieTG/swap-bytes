@@ -71,18 +71,21 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
         .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(7200)))
         .build();
 
-        swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
+        // Set local storage
+        let mut state = STATE.lock().unwrap();
+        state.peer_id = swarm.local_peer_id().to_string();
 
-        let topic = gossipsub::IdentTopic::new("global");
-        swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
-
+        // Address to listen on
         let external_address: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
         swarm.listen_on(external_address.clone())?;
 
-        let (command_sender, command_receiver) = mpsc::channel(0);
+        // Network Setup
+        let topic = gossipsub::IdentTopic::new("global");
+        swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+        swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
-        let mut state = STATE.lock().unwrap();
-        state.peer_id = swarm.local_peer_id().to_string();
+        // Allows for cross task communication
+        let (command_sender, command_receiver) = mpsc::channel(0);
 
         Ok((
             Client {
