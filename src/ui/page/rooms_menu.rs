@@ -182,6 +182,7 @@ impl RoomMenu {
         .peers
         .iter()
         .filter_map(|peer_id| {
+            
             state.nicknames.get(&peer_id.to_string()).map(|nickname| {
 
                 let own_peer_id = state.peer_id.clone();

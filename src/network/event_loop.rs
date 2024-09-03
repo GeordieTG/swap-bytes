@@ -15,8 +15,8 @@ use super::{client::Client, command::*, network::{ChatBehaviour, ChatBehaviourEv
 pub struct EventLoop {
     swarm: Swarm<ChatBehaviour>,
     command_receiver: mpsc::Receiver<Command>,
-    nickname_fetch_queue: HashMap<QueryId, PeerId>,
-    rating_fetch_queue: HashMap<QueryId, (String, String, String)>, // (PeerId, Message, Nickname, Topic)
+    nickname_fetch_queue: HashMap<QueryId, (PeerId, String)>, // (PeerId, Dm Key)
+    rating_fetch_queue: HashMap<QueryId, (String, String, String)>, // (Message, Nickname, Topic)
     rating_update_queue: HashMap<QueryId, (PeerId, i32)> // (PeerId, Recent Rating)
 }
 

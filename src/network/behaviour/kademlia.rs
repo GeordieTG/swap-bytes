@@ -16,7 +16,7 @@ enum Value {
 /// Handles all Kademlia events that come through the network event loop.
 pub async fn handle_event(
     event: libp2p::kad::Event,
-    nickname_fetch_queue: &mut HashMap<QueryId, PeerId>,
+    nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String)>,
     rating_fetch_queue: &mut HashMap<QueryId, (String, String, String)>,
     rating_update_queue: &mut HashMap<QueryId, (PeerId, i32)>,
     swarm: &mut Swarm<ChatBehaviour>
@@ -39,15 +39,23 @@ pub async fn handle_event(
                     match serde_cbor::from_slice::<Value>(&value) {
                         
                         // If the returned value was of type Nickname, this means another users nickname has been fetched from the DHT (this will have
-                        // been called on connection with another peer). After the fetch, we store the nickname for the peer in our local storage. 
+                        // been called on connection with another peer). After the fetch, we store the nickname for the peer in our local storage and
+                        // add a personalised message to their direct message. 
                         Ok(Value::Nickname(nickname)) => {
                             log::info!("Got record {:?} {:?}", std::str::from_utf8(key.as_ref()).unwrap(), value);
 
                             if nickname_fetch_queue.contains_key(&id) {
-                                let peer_id = nickname_fetch_queue.remove(&id).unwrap();
+
+                                // Add nickname to local storage
+                                let (peer_id, dm_key) = nickname_fetch_queue.remove(&id).unwrap();
                                 let mut state = STATE.lock().unwrap();
                                 state.nicknames.insert(peer_id.to_string(), nickname);
+
+                                // Add personalised message to the user's direct message.
+                                let nickname = state.nicknames.get(&peer_id.to_string()).unwrap().clone();      
+                                state.messages.insert(dm_key.clone(), vec![format!("😀 Chatting with {}", nickname.clone())]);
                             }                           
+
                         }
 
                         // If the returned value was of type Rating, this means another users rating has been fetched from the DHT. This is used in two senarios,
@@ -106,6 +114,7 @@ pub async fn handle_event(
                             let mut default_rooms = vec!["Global".to_string(), "COSC473".to_string(), "COSC478".to_string(), "SENG406".to_string(), "SENG402".to_string()];
                             rooms.append(&mut default_rooms);
                             state.rooms = rooms.clone();
+
 
                             // Automatically subscribes the user to all rooms
                             for room in rooms {

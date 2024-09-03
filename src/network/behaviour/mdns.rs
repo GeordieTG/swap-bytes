@@ -4,9 +4,10 @@ use libp2p::kad::QueryId;
 use libp2p::{gossipsub, kad, mdns, PeerId, Swarm};
 use crate::state::STATE;
 use crate::network::network::ChatBehaviour;
+use crate::util;
 
 // Handles all MDNS events that come through the network event loop.
-pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, PeerId>) {
+pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBehaviour>, nickname_fetch_queue: &mut HashMap<QueryId, (PeerId, String)>) {
 
     match event {
 
@@ -24,21 +25,10 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 // Update local peers
                 let mut state = STATE.lock().unwrap();
                 state.peers.push(peer_id);
-
-                // Add a DM for this user to our local storage
-                let peer_id_string = peer_id.to_string();
+                
+                // Subscribe to the DM for this user and add it to our local storage
                 let own_peer_id = state.peer_id.clone();
-
-                // The key for the chat is biggerPeerId_smallerPeerId to ensure consistancy in keys
-                let (bigger_key, smaller_key) = if peer_id_string > own_peer_id {
-                    (peer_id_string, own_peer_id)
-                } else {
-                    (own_peer_id, peer_id_string)
-                };
-
-                let dm_key = format!("{}_{}", bigger_key, smaller_key);
-                state.messages.insert(dm_key.clone(), vec![]);
-
+                let dm_key = util::format_dm_key(peer_id.to_string(), own_peer_id);
                 let topic = gossipsub::IdentTopic::new(dm_key.clone());
                 swarm.behaviour_mut().gossipsub.subscribe(&topic).unwrap();
                 
@@ -46,7 +36,7 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
                 let key_string = "nickname_".to_string() + &peer_id.to_string();
                 let key = kad::RecordKey::new(&key_string);
                 let query_id = swarm.behaviour_mut().kademlia.get_record(key);
-                nickname_fetch_queue.insert(query_id, peer_id);
+                nickname_fetch_queue.insert(query_id, (peer_id, dm_key));
             }
         }
 
