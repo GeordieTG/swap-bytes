@@ -144,7 +144,6 @@ impl EventLoop {
 
 
     // Sets up a user when they first join the network.
-    // Adds their nickname and assigns an inital peer rating of 0 to the Kademlia DHT.
     fn setup(&mut self, address: Multiaddr) {
 
         if address.to_string().contains("/ip4/127.0.0.1/udp") {

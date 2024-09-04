@@ -33,7 +33,7 @@ impl Chat {
     }
     
     
-    /// Event handler for the Global Tab. Can type messages into the input at the bottom of the page, delete with 
+    /// Event handler for the Chat Tab. Can type messages into the input at the bottom of the page, delete with 
     /// backspace and send with Enter.
     pub async fn handle_events(&mut self, client: &mut Client, key: KeyEvent) {
             

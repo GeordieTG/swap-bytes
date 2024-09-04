@@ -19,7 +19,7 @@ use ratatui::{
 
 
 /// Setup a global logger for the application. As Ratatui UI replaces the terminal, we need a place to safely log information.
-/// Logs can be found in "app.log"
+/// Logs can be found in "peer.log"
 fn setup_logger() -> Result<(), Box<dyn Error>> {
 
     let log_file = File::create("src/log/peer.log")?;

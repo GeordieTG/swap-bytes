@@ -41,7 +41,7 @@ pub fn message_component(messages: &str, title: String) -> Paragraph {
 }
 
 
-// Re-useable component to display and input for the user. The title will be placed in the border 
+// Re-useable component to display an input for the user. The title will be placed in the border 
 // of the box and will act as instructions for the input.
 pub fn input_component(input_str: &str, title: String) -> Paragraph{
 

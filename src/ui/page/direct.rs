@@ -16,7 +16,7 @@ enum Section {
 }
 
 
-/// A page for users to chat with all other peers on the network.
+/// A page for users to request and send files with all other peers on the network.
 #[derive(Default)]
 pub struct Direct {
     input: String,
@@ -67,7 +67,7 @@ impl Direct {
     }
     
     
-    /// Handles key stroke events for the direct messages page.
+    /// Handles key stroke events for the file sharing page.
     pub async fn handle_events(&mut self, client: &mut Client, key: KeyEvent) {
         
         match key.code {

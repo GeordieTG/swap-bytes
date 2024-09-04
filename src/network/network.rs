@@ -11,7 +11,7 @@ use crate::state::STATE;
 
 use super::{client::Client, event_loop::EventLoop};
 
-/// Main network entry point. Defines the behaviour of our libp2p application
+/// Main network entry point. Defines the behaviour of our libp2p application.
 #[derive(NetworkBehaviour)]
 pub struct ChatBehaviour {
     pub mdns: mdns::tokio::Behaviour,

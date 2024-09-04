@@ -16,7 +16,7 @@ enum Section {
     User
 }
 
-/// A page for users to view all available rooms on the network and select one to join.
+/// A page for users to view all available rooms / dm's on the network and select one to join.
 pub struct RoomMenu {
     input: String,
     room_list_state: ListState,
@@ -42,7 +42,7 @@ impl Default for RoomMenu {
 
 impl RoomMenu {
 
-    /// Simply renders the page consisting of a list of availabe rooms, and an input field at the bottom of the page to allow the
+    /// Simply renders the page consisting of a list of availabe rooms, a list of available dm's, and an input field at the bottom of the page to allow the
     /// user to create new rooms on the network.
     pub fn render(&mut self, frame: &mut Frame, layout: Rc<[Rect]>) {
 
@@ -74,8 +74,7 @@ impl RoomMenu {
     }
     
     
-    /// Event handler for the RoomMenu Tab. Can use Up and Down Arrows to navigate the list of rooms and Enter to select a room to join.
-    /// The user also has the ability to create a new room by typing into the input field and push Right Arrow to confirm the creation.
+    /// Event handler for the RoomMenu Tab.
     pub async fn handle_events<T: FnMut(Tab)>(&mut self, client: &mut Client, key: KeyEvent, mut switch_tab_callback: T) {
        
         match key.code {

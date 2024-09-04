@@ -16,6 +16,7 @@ pub struct Landing {
 
 impl Landing {
 
+    /// Called from the main application to run this sign in sequence.
     pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<bool, Box<dyn Error>> {
         terminal.draw(|f| self.ui(f))?;
         let should_quit = &self.handle_events().await?;
@@ -51,11 +52,12 @@ impl Landing {
     }
     
     
-    /// Event handler for the Landing page. Listens for user keystrokes.
+    /// Event handler for the Landing page. 
     async fn handle_events(&mut self) -> Result<bool, std::io::Error> {
     
         let mut state = STATE.lock().unwrap();
     
+        // Listens for user keystroke events
         if event::poll(std::time::Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == event::KeyEventKind::Press {

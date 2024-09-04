@@ -11,8 +11,7 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
 
     match event {
 
-        // Handles the connection with a new peer. We first add them to Gossipsub, Kademlia and our local list of peers,
-        // before fetching their nickname from the DHT.
+        // Handles the connection with a new peer.
         mdns::Event::Discovered(list) => {
 
             for (peer_id, addr) in list {
