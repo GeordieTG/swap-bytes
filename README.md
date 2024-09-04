@@ -6,7 +6,7 @@ Designed for students to join chat rooms and organise the trading of study notes
 
 ## How to run
 
-- Start a Peer using ```cargo run --bin peer```
+- Start a Peer using ```cargo run```
 
 ## Main Controls 🕹️
 
