@@ -14,7 +14,7 @@ pub async fn handle_event(event: libp2p::request_response::Event<Request, Respon
             match message {
 
                 // If we receive a request we add it to our global state and this will be shown in the "Incoming Requests" list on
-                // the "Direct Messages" tab.
+                // the "File Sharing" tab.
                 Message::Request { request, channel, .. } => {
                     log::info!("Received request: {:?}", request);
 
@@ -39,7 +39,7 @@ pub async fn handle_event(event: libp2p::request_response::Event<Request, Respon
         }
         
         other => {
-            log::info!("Unhandled {:?}", other);
+            log::info!("{:?}", other);
         }
     }
 }

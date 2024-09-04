@@ -40,18 +40,6 @@ pub async fn handle_event(event: libp2p::mdns::Event, swarm: &mut Swarm<ChatBeha
             }
         }
 
-        // Handles the event that a known peer disconnects.
-        mdns::Event::Expired(list) => {
-            for (peer_id, _) in list {
-
-                // Remove from network
-                swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                swarm.behaviour_mut().kademlia.remove_peer(&peer_id);
-                
-                // Remove from local list
-                let mut state = STATE.lock().unwrap();
-                state.peers.retain(|&x| x != peer_id);
-            }
-        }
+        _ => {}
     }
 }

@@ -25,6 +25,7 @@ pub struct EventLoop {
 /// For example, it will listen for incoming messages, and then append the received message to the global store to be shown in the UI.
 /// This is intended to be run in the background of the application asyncronously.
 impl EventLoop {
+
     pub fn new(
         swarm: Swarm<ChatBehaviour>,
         command_receiver: mpsc::Receiver<Command>,
@@ -37,6 +38,7 @@ impl EventLoop {
             rating_update_queue: HashMap::new(),
         }
     }
+
 
     /// Begins the libp2p event loop. To be called from the main application.
     pub async fn run(mut self, client: Client) {
@@ -60,6 +62,11 @@ impl EventLoop {
             // Initial setup
             SwarmEvent::NewListenAddr { address, ..} => {
                 self.setup(address);
+            },
+
+            // Handles the event that a known peer disconnects.
+            SwarmEvent::ConnectionClosed { peer_id, ..} => {
+                self.remove_peer(peer_id);
             },
 
             // Handle MDNS (Peer Connection) events
@@ -120,6 +127,19 @@ impl EventLoop {
                 update_rating(&mut self.swarm, peer, rating, &mut self.rating_update_queue)
             }
         }
+    }
+
+
+    /// Removes a known peer from our storage when they disconnect.
+    fn remove_peer(&mut self, peer_id: PeerId) {
+
+        // Remove from network
+        self.swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+        self.swarm.behaviour_mut().kademlia.remove_peer(&peer_id);
+        
+        // Remove from local list
+        let mut state = STATE.lock().unwrap();
+        state.peers.retain(|&x| x != peer_id);
     }
 
 

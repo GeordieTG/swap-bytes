@@ -16,28 +16,27 @@ pub async fn handle_event(event: libp2p::gossipsub::Event, rating_fetch_queue: &
             message_id: _id,
             message,
         } => {
+                let mut state = STATE.lock().unwrap();
 
-            let mut state = STATE.lock().unwrap();
+                // Message display information
+                let topic = message.topic.to_string();
+                let data = String::from_utf8_lossy(&message.data).to_string();
+                let nickname = state.nicknames.get(&peer_id.to_string()).expect("User not found").clone();      
 
-            // Message display information
-            let topic = message.topic.to_string();
-            let data = String::from_utf8_lossy(&message.data).to_string();
-            let nickname = state.nicknames.get(&peer_id.to_string()).expect("User not found").clone();      
+                // Notify we have received a message for this room
+                state.notifications.insert(topic.clone(), true);       
 
-            // Notify we have received a message for this room
-            state.notifications.insert(topic.clone(), true);       
+                // Fetch the users rating from the DHT (appending the message information to a queue)
+                let key_string = "rating_".to_string() + &peer_id.to_string();
+                let key = kad::RecordKey::new(&key_string);
+                let query_id = swarm.behaviour_mut().kademlia.get_record(key);
+                rating_fetch_queue.insert(query_id, (data, nickname, topic.clone()));
 
-            // Fetch the users rating from the DHT (appending the message information to a queue)
-            let key_string = "rating_".to_string() + &peer_id.to_string();
-            let key = kad::RecordKey::new(&key_string);
-            let query_id = swarm.behaviour_mut().kademlia.get_record(key);
-            rating_fetch_queue.insert(query_id, (data, nickname, topic.clone()));
-
-            log::info!("Received message: {} on Topic: {}", String::from_utf8_lossy(&message.data), topic);
+                log::info!("Received message: {} on Topic: {}", String::from_utf8_lossy(&message.data), topic);
             }  
 
         other => {
-            log::info!("Unhandled {:?}", other);
+            log::info!("{:?}", other);
         }
     }
 }

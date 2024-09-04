@@ -92,11 +92,11 @@ impl Chat {
     fn room_setup(&self) -> (String, String) {
         
         let mut state = STATE.lock().unwrap();
-
         let nickname = state.nickname.clone();
         let room_key = state.current_room.clone();
         let room = state.current_room.clone();
 
+        // Clear notifications for the room
         state.notifications.insert(room.clone(), false);
 
         if !state.messages.contains_key(&room_key) {

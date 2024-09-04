@@ -68,7 +68,7 @@ pub fn new() -> Result<(Client, EventLoop), Box<dyn Error>> {
                 kademlia: kad::Behaviour::new(key.public().to_peer_id(), MemoryStore::new(key.public().to_peer_id())),
             })
         })?
-        .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(7200)))
+        .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(1)))
         .build();
 
         // Set local storage
